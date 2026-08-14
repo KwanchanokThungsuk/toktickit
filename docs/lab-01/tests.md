@@ -5,12 +5,14 @@ All test files live under server/tests/lab-01/ and client/tests/lab-01/.
 | # | Tool | Test | Result |
 |---|------|------|--------|
 | 1 | Supertest | GET /api/health returns 200, status=ok | Pass |
-| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | |
-| 3 | Vitest | Heading renders | |
-| 4 | Vitest | Success state shows Online + category list | |
-| 5 | Vitest | Error state shows Offline + message | |
+| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | Pass |
+| 3 | Vitest | Heading renders | Pass |
+| 4 | Vitest | Success state shows Online + category list | Pass |
+| 5 | Vitest | Error state shows Offline + message | Pass |
 
 Paste your passing terminal output / screenshot below.
 
 1. issue 2
  ![alt text](image.png), ![alt text](image-1.png)
+2. issue 4
+![alt text](<ภาพถ่ายหน้าจอ 2569-08-14 เวลา 12.06.14.png>)
