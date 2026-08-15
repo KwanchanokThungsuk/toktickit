@@ -8,7 +8,7 @@
 |----|--------|------------------|
 | #5 | feature/1-project-foundation | Approved |
 | #6 | feature/2-health-check | Commented and Approved |
-|    | feature/3-category-seed |  |
+| #8 | feature/3-category-seed | Approved |
 |    | feature/4-category-list |  |
 
 **feature/1-project-foundation**
@@ -19,6 +19,10 @@ How I responded: Merged.
 Reviewer comment I received: Supertest passed successfully (HTTP returns 200) but the frontend didn't return an error message (backend status). pls fix that
 How I responded: I updated App.tsx to correctly catch the error and display the offline message, then pushed the new commit.
 
+**feature/3-category-seed**
+Reviewer comment I received: The Prisma Category structure is correct. There is no problem with the seed and no database credentials committed
+How I responded: Merged.
+
 ## Pull Requests I reviewed for my partner
 **feature/1-project-foundation**
 My comment: Everything looks great Both the frontend and backend work fine. I also tested it locally on both the client and server, and the results are correct. No .env files or secrets were committed.
@@ -26,4 +30,8 @@ Partner's response: Merged.
 
 **feature/2-health-check**
 My comment: The GET /api/health status has already been changed from 501 to 200, and everything else looks good according to Issue 2. I don't see any issues with your branch.
+Partner's response: Merged.
+
+**feature/3-category-seed**
+My comment: look good. The schema.prisma structure is correct, and seed.ts has no error and don't have .env file. Overall, everything looks great.
 Partner's response: Merged.

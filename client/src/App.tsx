@@ -6,17 +6,15 @@ type UiState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
   const [state, setState] = useState<UiState>("idle");
-  const [statusData, setStatusData] = useState<{ status: string; service: string } | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   async function handleCheck() {
     setState("loading");
     setErrorMessage("");
     try {
-      await checkSystem();
-      const res = await fetch(`${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/health`);
-      const data = await res.json();
-      setStatusData(data);
+      const result = await checkSystem();
+      setCategories(result.categories);
       setState("success");
     } catch (err: any) {
       setErrorMessage(err?.message || "Error checking system");
@@ -34,10 +32,17 @@ export default function App() {
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
 
-      {state === "success" && statusData && (
+      {state === "success" && (
         <div className="card p-3 mb-3 bg-light">
           <h5 className="text-success mb-2">Online</h5>
-          <p className="mb-0"><strong>status:</strong> {statusData.status} | <strong>service:</strong> {statusData.service}</p>
+          <p className="mb-2"><strong>status:</strong> ok | <strong>service:</strong> TokTickIT API</p>
+          <ul className="list-group">
+            {categories.map((cat) => (
+              <li key={cat.id} className="list-group-item">
+                {cat.id}: {cat.name}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
