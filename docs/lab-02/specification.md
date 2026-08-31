@@ -3,9 +3,7 @@
 **Project:** TokTickIT IT Service Desk
 **Sprint:** Individual Sprint 2 — Requester Ticketing MVP with UI Foundation
 **Course:** CPE 334, Semester 1/2026
-
 <!-- **Status:** Approved before implementation -->
-
 **Related documents:** `docs/lab-02/ui-spec.md`, `docs/lab-02/api-spec.md`, `docs/lab-02/tests.md`
 
 ---
@@ -88,7 +86,7 @@ Anything in this list that appears in the illustrative screenshots (Ticket Owner
 
 - **FR-21** The system shall list only the selected Requester's own tickets, scoped in the database query rather than filtered in the client.
 - **FR-22** The system shall support keyword search across Ticket Number and Summary.
-- **FR-23** The system shall support filtering by Category, Related System, and Requested Priority.
+- **FR-23** The system shall support filtering by Category, Related System, Requested Priority, and Current Status. In Lab 2 the Current Status filter offers only `NEW`, since no other status can exist (BR-02); the control is specified now so that later sprints extend its option list rather than introduce a new control.
 - **FR-24** The system shall support sorting by Ticket Number, Created Date, and Last Updated, ascending or descending.
 - **FR-25** The system shall paginate the ticket list and return pagination metadata (current page, page size, total items, total pages).
 - **FR-26** The system shall distinguish an empty state (the Requester has no tickets at all) from a no-results state (filters or search matched nothing) and offer a Clear Filters action in the latter.
@@ -144,7 +142,7 @@ Anything in this list that appears in the illustrative screenshots (Ticket Owner
 
 - **BR-23** Allowed attachment types are JPG/JPEG, PNG, WEBP, and PDF. The server validates the declared content type and the file extension, and rejects any mismatch.
 - **BR-24** Maximum attachment size is 5 MB per file, enforced on both client and server.
-- **BR-25** A Ticket may have at most five _active_ attachments. Soft-removed attachments do not count toward this limit.
+- **BR-25** A Ticket may have at most five *active* attachments. Soft-removed attachments do not count toward this limit.
 - **BR-26** Attachment removal is always soft: the row is retained and marked removed, with `removedAt`, `removedReason`, and the removing Requester recorded.
 - **BR-27** A removal reason is required and the user must confirm the action before it is applied.
 - **BR-28** A removed attachment remains visible as metadata but cannot be downloaded or previewed. Requests for its content return a not-found style response.
@@ -175,16 +173,16 @@ Full detail lives in `docs/lab-02/ui-spec.md`. This section states the binding s
 
 ### Design tokens
 
-| Token           | Value                                | Use                                                      |
-| --------------- | ------------------------------------ | -------------------------------------------------------- |
-| Primary green   | `#006B3C`                            | App header, primary buttons, strong emphasis             |
-| Secondary green | `#0B7A46`                            | Active tab, focus accent, links, hover                   |
-| Pale green      | `#EAF6EF`                            | Selected rows, success surfaces, subtle section emphasis |
-| Page background | `#F5F7F6`                            | Application background                                   |
-| Surface         | `#FFFFFF`                            | Cards and panels, subtle border, restrained shadow       |
-| Text            | Dark charcoal-green (not pure black) | Body and label text                                      |
-| Error           | Dark red                             | Message and border, placed directly below the field      |
-| Warning         | Amber                                | Callouts and badges only, never decoration               |
+| Token | Value | Use |
+|---|---|---|
+| Primary green | `#006B3C` | App header, primary buttons, strong emphasis |
+| Secondary green | `#0B7A46` | Active tab, focus accent, links, hover |
+| Pale green | `#EAF6EF` | Selected rows, success surfaces, subtle section emphasis |
+| Page background | `#F5F7F6` | Application background |
+| Surface | `#FFFFFF` | Cards and panels, subtle border, restrained shadow |
+| Text | Dark charcoal-green (not pure black) | Body and label text |
+| Error | Dark red | Message and border, placed directly below the field |
+| Warning | Amber | Callouts and badges only, never decoration |
 
 ### Structure and components
 
@@ -199,12 +197,12 @@ Full detail lives in `docs/lab-02/ui-spec.md`. This section states the binding s
 
 ### Responsive rules
 
-| Viewport          | Behavior                                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------------------- |
-| Desktop ≥ 992 px  | Multi-column form; ticket table; content centered with a sensible maximum width                           |
-| Tablet 768–991 px | Two-column form where practical; Summary and Description keep adequate width                              |
-| Mobile < 768 px   | Fields stack vertically; ticket list becomes cards; touch-friendly controls; no horizontal page scrolling |
-| All sizes         | No clipped labels, overlapping messages, hidden buttons, or unreadable attachment names                   |
+| Viewport | Behavior |
+|---|---|
+| Desktop ≥ 992 px | Multi-column form; ticket table; content centered with a sensible maximum width |
+| Tablet 768–991 px | Two-column form where practical; Summary and Description keep adequate width |
+| Mobile < 768 px | Fields stack vertically; ticket list becomes cards; touch-friendly controls; no horizontal page scrolling |
+| All sizes | No clipped labels, overlapping messages, hidden buttons, or unreadable attachment names |
 
 ---
 
@@ -212,14 +210,14 @@ Full detail lives in `docs/lab-02/ui-spec.md`. This section states the binding s
 
 ### Models
 
-| Model                  | Purpose                                       | Key fields                                                                                                                                                                |
-| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RequesterUser`        | Temporary Lab 2 Development Requester         | `id`, `name`, `email` (unique), `isActive`, `createdAt`                                                                                                                   |
-| `Category`             | Ticket classification (extends Lab 1)         | `id`, `name` (unique), `isActive`, `createdAt`                                                                                                                            |
-| `RelatedSystem`        | Affected service, application, or device      | `id`, `name` (unique), `isActive`, `createdAt`                                                                                                                            |
-| `Ticket`               | The support request                           | `id`, `ticketNumber` (unique), `requesterId`, `categoryId`, `relatedSystemId`, `summary`, `description`, `requestedPriority`, `currentStatus`, `createdAt`, `updatedAt`   |
-| `Attachment`           | File attached to a Ticket                     | `id`, `ticketId`, `originalFilename`, `storedFilename`, `contentType`, `fileSize`, `uploadedById`, `uploadedAt`, `isRemoved`, `removedAt`, `removedById`, `removedReason` |
-| `TicketNumberSequence` | Per-year counter for Ticket Number allocation | `year` (PK), `lastNumber`                                                                                                                                                 |
+| Model | Purpose | Key fields |
+|---|---|---|
+| `RequesterUser` | Temporary Lab 2 Development Requester | `id`, `name`, `email` (unique), `isActive`, `createdAt` |
+| `Category` | Ticket classification (extends Lab 1) | `id`, `name` (unique), `isActive`, `createdAt` |
+| `RelatedSystem` | Affected service, application, or device | `id`, `name` (unique), `isActive`, `createdAt` |
+| `Ticket` | The support request | `id`, `ticketNumber` (unique), `requesterId`, `categoryId`, `relatedSystemId`, `summary`, `description`, `requestedPriority`, `currentStatus`, `createdAt`, `updatedAt` |
+| `Attachment` | File attached to a Ticket | `id`, `ticketId`, `originalFilename`, `storedFilename`, `contentType`, `fileSize`, `uploadedById`, `uploadedAt`, `isRemoved`, `removedAt`, `removedById`, `removedReason` |
+| `TicketNumberSequence` | Per-year counter for Ticket Number allocation | `year` (PK), `lastNumber` |
 
 ### Enums
 
@@ -258,19 +256,19 @@ Soft removal is represented as an `isRemoved` boolean plus `removedAt`, `removed
 
 Full request and response shapes, status codes, and error bodies are defined in `docs/lab-02/api-spec.md`. All endpoints are prefixed `/api` and return JSON. The selected Requester is transmitted as an explicit request parameter or header and is validated server-side on every call — it is never trusted as proof of identity.
 
-| Method | Path                            | Purpose                                                                           |
-| ------ | ------------------------------- | --------------------------------------------------------------------------------- |
-| GET    | `/api/health`                   | Liveness check (from Lab 1)                                                       |
-| GET    | `/api/categories`               | Active Categories                                                                 |
-| GET    | `/api/related-systems`          | Active Related Systems                                                            |
-| GET    | `/api/requesters`               | Active Development Requesters for the selector                                    |
-| POST   | `/api/tickets`                  | Create one validated Ticket for the selected Requester                            |
-| GET    | `/api/tickets`                  | Paginated list of the selected Requester's tickets, with search, filter, and sort |
-| GET    | `/api/tickets/:id`              | One owned Ticket, including attachment metadata                                   |
-| POST   | `/api/tickets/:id/attachments`  | Upload one attachment to an owned Ticket (multipart)                              |
-| GET    | `/api/tickets/:id/attachments`  | Attachment metadata for an owned Ticket                                           |
-| GET    | `/api/attachments/:id/download` | Stream an active attachment the Requester owns                                    |
-| PATCH  | `/api/attachments/:id/remove`   | Soft-remove an owned active attachment with a reason                              |
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | Liveness check (from Lab 1) |
+| GET | `/api/categories` | Active Categories |
+| GET | `/api/related-systems` | Active Related Systems |
+| GET | `/api/requesters` | Active Development Requesters for the selector |
+| POST | `/api/tickets` | Create one validated Ticket for the selected Requester |
+| GET | `/api/tickets` | Paginated list of the selected Requester's tickets, with search, filter, and sort |
+| GET | `/api/tickets/:id` | One owned Ticket, including attachment metadata |
+| POST | `/api/tickets/:id/attachments` | Upload one attachment to an owned Ticket (multipart) |
+| GET | `/api/tickets/:id/attachments` | Attachment metadata for an owned Ticket |
+| GET | `/api/attachments/:id/download` | Stream an active attachment the Requester owns |
+| PATCH | `/api/attachments/:id/remove` | Soft-remove an owned active attachment with a reason |
 
 ### Query contract for `GET /api/tickets`
 
@@ -278,16 +276,16 @@ Full request and response shapes, status codes, and error bodies are defined in 
 
 ### Status codes
 
-| Status | Use                                                                                           |
-| ------ | --------------------------------------------------------------------------------------------- |
-| 200    | Successful retrieval, download, or soft removal                                               |
-| 201    | Ticket or Attachment created                                                                  |
-| 400    | Invalid input, invalid query parameter, unsupported file type, missing removal reason         |
-| 404    | Ticket or Attachment not found, **or** owned by a different Requester, **or** already removed |
-| 409    | Active-attachment limit reached, or attachment already removed                                |
-| 413    | Uploaded file exceeds 5 MB                                                                    |
-| 422    | Field-level validation failure on ticket creation                                             |
-| 500    | Unexpected server error, returned as a safe generic message                                   |
+| Status | Use |
+|---|---|
+| 200 | Successful retrieval, download, or soft removal |
+| 201 | Ticket or Attachment created |
+| 400 | Invalid input, invalid query parameter, unsupported file type, missing removal reason |
+| 404 | Ticket or Attachment not found, **or** owned by a different Requester, **or** already removed |
+| 409 | Active-attachment limit reached, or attachment already removed |
+| 413 | Uploaded file exceeds 5 MB |
+| 422 | Field-level validation failure on ticket creation |
+| 500 | Unexpected server error, returned as a safe generic message |
 
 Every error response uses one shape: `{ "error": { "code": string, "message": string, "fields"?: Record<string,string> } }`.
 
@@ -335,6 +333,7 @@ Every error response uses one shape: `{ "error": { "code": string, "message": st
 - **AC-27** Given more tickets than one page holds, when the user navigates to page 2, then the next set is returned and the active page indicator updates.
 - **AC-28** Given sorting by Ticket Number ascending is selected, when the list reloads, then results are ordered accordingly and the sort indicator reflects the state.
 - **AC-29** Given `pageSize=999`, when the list is requested, then the API returns a validation error rather than silently applying a default.
+- **AC-35** Given the Current Status filter is set to New, when the list loads, then only tickets with status `NEW` are returned and pagination resets to page 1; given an unsupported status value, then the API returns a validation error.
 
 **Ticket Detail and cross-cutting**
 
@@ -353,28 +352,24 @@ Every Acceptance Criterion maps to at least one planned test in `docs/lab-02/tes
 ### Product completion
 
 **Implementation**
-
 - [ ] All in-scope screens are implemented; nothing from section 3.2 has been built.
 - [ ] Every Functional Requirement and Business Rule in this document is implemented or explicitly marked deferred with justification.
 - [ ] Ownership is enforced in the backend on every ticket and attachment endpoint.
 - [ ] Migration applies cleanly to an empty database and the seed runs twice without creating duplicates.
 
 **Testing**
-
 - [ ] Unit, API, UI component, UI style, responsive, and E2E tests all exist and pass from documented commands in the final `main` branch.
 - [ ] Every Acceptance Criterion is linked to at least one passing test in `tests.md`.
 - [ ] No test is skipped, disabled, commented out, or passing for a reason unrelated to its stated purpose.
 - [ ] Failure paths are tested, not only happy paths: validation, ownership rejection, oversized and unsupported files, removed-attachment download, backend unavailable.
 
 **UI**
-
 - [ ] Implemented screens match `ui-spec.md` for color tokens, field states, validation placement, and button hierarchy.
 - [ ] Desktop, tablet, and mobile screenshots are captured under `artifacts/lab-02/screenshots/` for Create Ticket, My Tickets, and Ticket Detail.
 - [ ] The visual checklist is completed: no clipping, overlap, unintended horizontal scrolling, inconsistent field styling, or missing states.
 - [ ] Loading, empty, no-results, success, validation-failure, and API-failure states are each demonstrable.
 
 **Documentation**
-
 - [ ] `specification.md`, `tests.md`, `ui-spec.md`, and `api-spec.md` are current and consistent with the implementation.
 - [ ] `README.md` setup, seed, run, and test instructions are accurate on a clean clone.
 - [ ] `ai-use.md` records the LLM used, selected key prompts, and reflection.
@@ -392,22 +387,22 @@ Every Acceptance Criterion maps to at least one planned test in `docs/lab-02/tes
 
 ## 11. Assumptions and Decisions
 
-| #    | Decision                                                                                         | Rationale                                                                                                                                      |
-| ---- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| D-01 | The selected Requester is stored in `localStorage` and sent to the API on each request.          | Survives reload, keeps the mechanism obviously non-secure, and is trivial to delete when Lab 3 introduces real sessions.                       |
-| D-02 | The server validates the submitted Requester on every call instead of trusting the client.       | Ownership logic then remains identical when the identity source changes in Lab 3.                                                              |
-| D-03 | Ticket Numbers use a per-year counter table rather than the primary key.                         | Produces the required human-readable format, avoids leaking row counts, and keeps allocation transactional and collision-free.                 |
-| D-04 | `TicketStatus` declares only `NEW`.                                                              | Lab 2 excludes the status workflow; pre-declaring unused values would imply unimplemented behavior.                                            |
-| D-05 | Attachments are stored on the local filesystem with UUID filenames, with metadata in PostgreSQL. | Cloud storage is out of scope; UUID naming removes path-traversal and collision risk while original names survive as display metadata.         |
-| D-06 | Ticket creation and attachment upload are separate API calls.                                    | Keeps the multipart concern out of ticket creation, makes partial failure recoverable, and lets attachments be added later from Ticket Detail. |
-| D-07 | Ownership failures return 404 rather than 403.                                                   | Prevents the API from confirming that another Requester's ticket exists.                                                                       |
-| D-08 | Invalid query parameters return 400 rather than falling back to defaults.                        | A malformed request is a bug, and silent correction hides it.                                                                                  |
-| D-09 | Priority is limited to `LOW`, `MEDIUM`, `HIGH`.                                                  | Matches the illustrative screens; an urgency tier can be added with IT Priority in a later sprint.                                             |
-| D-10 | Tickets are immutable after creation in Lab 2.                                                   | Editing is not in the stakeholder request and would require change tracking that belongs with the Event Log.                                   |
-| D-11 | Category gains `isActive` rather than being replaced.                                            | Additive migration preserves Lab 1 seed data and keeps the reference-data pattern uniform across models.                                       |
+| # | Decision | Rationale |
+|---|---|---|
+| D-01 | The selected Requester is stored in `localStorage` and sent to the API on each request. | Survives reload, keeps the mechanism obviously non-secure, and is trivial to delete when Lab 3 introduces real sessions. |
+| D-02 | The server validates the submitted Requester on every call instead of trusting the client. | Ownership logic then remains identical when the identity source changes in Lab 3. |
+| D-03 | Ticket Numbers use a per-year counter table rather than the primary key. | Produces the required human-readable format, avoids leaking row counts, and keeps allocation transactional and collision-free. |
+| D-04 | `TicketStatus` declares only `NEW`. | Lab 2 excludes the status workflow; pre-declaring unused values would imply unimplemented behavior. |
+| D-05 | Attachments are stored on the local filesystem with UUID filenames, with metadata in PostgreSQL. | Cloud storage is out of scope; UUID naming removes path-traversal and collision risk while original names survive as display metadata. |
+| D-06 | Ticket creation and attachment upload are separate API calls. | Keeps the multipart concern out of ticket creation, makes partial failure recoverable, and lets attachments be added later from Ticket Detail. |
+| D-07 | Ownership failures return 404 rather than 403. | Prevents the API from confirming that another Requester's ticket exists. |
+| D-08 | Invalid query parameters return 400 rather than falling back to defaults. | A malformed request is a bug, and silent correction hides it. |
+| D-09 | Priority is limited to `LOW`, `MEDIUM`, `HIGH`. | Matches the illustrative screens; an urgency tier can be added with IT Priority in a later sprint. |
+| D-10 | Tickets are immutable after creation in Lab 2. | Editing is not in the stakeholder request and would require change tracking that belongs with the Event Log. |
+| D-11 | Category gains `isActive` rather than being replaced. | Additive migration preserves Lab 1 seed data and keeps the reference-data pattern uniform across models. |
 
 **Open assumptions to confirm with the stakeholder:** whether a Requester may create tickets on behalf of another person (assumed no); whether attachment previews are required in-browser or download-only (assumed download-only); whether Related System should be filterable by Category (assumed no coupling in Lab 2).
 
 ---
 
-_Prepared with AI specification-agent assistance. Reviewed, corrected, and approved by the student, who remains responsible for the contents of this contract._
+*Prepared with AI specification-agent assistance. Reviewed, corrected, and approved by the student, who remains responsible for the contents of this contract.*

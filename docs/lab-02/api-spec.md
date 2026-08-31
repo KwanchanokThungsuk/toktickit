@@ -222,6 +222,7 @@ Paginated list of the selected Requester's own tickets. Ownership is applied in 
 | `categoryId` | integer | — | Existing Category id |
 | `relatedSystemId` | integer | — | Existing Related System id |
 | `requestedPriority` | enum | — | `LOW` \| `MEDIUM` \| `HIGH` |
+| `currentStatus` | enum | — | `NEW` only in Lab 2 (BR-02). Any other value returns `400 INVALID_QUERY`; the enum widens when the status workflow arrives |
 | `sortBy` | enum | `createdAt` | `ticketNumber` \| `createdAt` \| `updatedAt` |
 | `sortOrder` | enum | `desc` | `asc` \| `desc` |
 | `page` | integer | `1` | ≥ 1 |

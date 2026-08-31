@@ -76,6 +76,7 @@ This plan is written from the Acceptance Criteria in `specification.md`, before 
 | API-26 | API | BR-13, AC-31 | Download an attachment on another Requester's ticket | 404; no content returned | `server/tests/lab-02/attachments.api.test.ts` | Pending |
 | API-27 | API | Seed rules | Seed idempotency | Running the seed twice produces no duplicate categories, systems, or requesters | `server/tests/lab-02/seed.api.test.ts` | Pending |
 | API-28 | API | AC-34, BR-39 | Safe error on datastore failure | 500 with a generic message; no stack trace, SQL text, or file path in the body | `server/tests/lab-02/error-handling.api.test.ts` | Pending |
+| API-29 | API | AC-35, FR-23 | Current Status filter | `currentStatus=NEW` returns only owned NEW tickets; `currentStatus=CLOSED` returns 400 `INVALID_QUERY` | `server/tests/lab-02/my-tickets.api.test.ts` | Pending |
 
 ### 2.3 UI component
 
@@ -103,6 +104,7 @@ This plan is written from the Acceptance Criteria in `specification.md`, before 
 | UI-20 | UI | AC-18, AC-19, BR-28 | Removed attachment presentation | Metadata, removal reason, and Removed badge shown; no download control rendered | `client/src/tests/lab-02/AttachmentSection.test.tsx` | Pending |
 | UI-21 | UI | AC-20, BR-27 | Removal requires confirmation and reason | Remove action disabled until a valid reason is entered; cancel leaves the attachment active | `client/src/tests/lab-02/AttachmentSection.test.tsx` | Pending |
 | UI-22 | UI | FR-31 | Loading states | Each screen renders its loading indicator while the request is pending | `client/src/tests/lab-02/LoadingStates.test.tsx` | Pending |
+| UI-23 | UI | AC-35, FR-23, BR-38 | Current Status filter control | Select offers All Statuses and New only; choosing New requests `currentStatus=NEW&page=1`; Clear Filters resets it | `client/src/tests/lab-02/MyTickets.test.tsx` | Pending |
 
 ### 2.4 UI style
 
@@ -171,8 +173,11 @@ Every Acceptance Criterion maps to at least one planned test, and every planned 
 | AC-32 | Responsive at 375, 768, 1280 px | RESP-01, RESP-02, RESP-03, RESP-04 |
 | AC-33 | Keyboard-only operation | STYLE-07, E2E-04 |
 | AC-34 | Safe error, no technical detail leaked | API-28, UI-10 |
+| AC-35 | Current Status filter applies and rejects unknown values | API-29, UI-23 |
 
-**Coverage summary:** 34 of 34 Acceptance Criteria covered. No AC is without a test; no test lacks a file path.
+**Coverage summary:** 35 of 35 Acceptance Criteria covered. No AC is without a test; no test lacks a file path.
+
+*Numbering note:* AC-35 was added after peer review of PR #5. Existing criteria are never renumbered, so a late addition takes the next free number rather than slotting into sequence.
 
 ---
 

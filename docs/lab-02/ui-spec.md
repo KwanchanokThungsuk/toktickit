@@ -184,7 +184,9 @@ Each selected file renders as a row: filename (truncated with `title`), size, st
 
 Page title "My Tickets" with subtitle "View and track all of your support requests." Right-aligned: Clear Filters (secondary) and Create Ticket (primary).
 
-**Filter bar** in a white surface card: search box (with magnifier icon and placeholder "Search by ticket number or summary…"), Category select, Related System select, Requested Priority select. Filters wrap to two rows on tablet and stack on mobile.
+**Filter bar** in a white surface card: search box (with magnifier icon and placeholder "Search by ticket number or summary…"), Category select, Related System select, Requested Priority select, Current Status select. Filters wrap to two rows on tablet and stack on mobile.
+
+Each select opens with an "All …" option that clears that filter. The Current Status select offers **All Statuses** and **New** only, because `NEW` is the sole status a ticket can hold in Lab 2 (BR-02). The control is specified now so that later sprints extend its option list rather than add a new control to a settled layout. An IT Priority filter is **not** included — that field does not exist in Lab 2 and an empty control would be misleading.
 
 ### 9.2 Desktop table (≥ 992 px)
 
