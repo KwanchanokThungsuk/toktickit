@@ -26,7 +26,7 @@ This plan is written from the Acceptance Criteria in `specification.md`, before 
 
 **Test data.** API tests run against a dedicated test database, reset and reseeded before each suite. The seed is idempotent (BR seed rules), so repeated runs never create duplicates. Fixtures use at least two active Requesters so ownership can be tested from both sides, plus one inactive Requester.
 
-**What is deliberately not tested.** Authentication, IT Staff workflow, comments, status transitions, and administration — all excluded in Lab 2 §3.2. Tests asserting their *absence* are included where a regression would be dangerous (UI-19).
+**What is deliberately not tested.** Authentication, IT Staff workflow, comments, status transitions, and administration — all excluded in Lab 2. Tests asserting their *absence* are included where a regression would be dangerous (UI-19).
 
 ---
 
@@ -177,8 +177,6 @@ Every Acceptance Criterion maps to at least one planned test, and every planned 
 
 **Coverage summary:** 35 of 35 Acceptance Criteria covered. No AC is without a test; no test lacks a file path.
 
-*Numbering note:* AC-35 was added after peer review of PR #5. Existing criteria are never renumbered, so a late addition takes the next free number rather than slotting into sequence.
-
 ---
 
 ## 4. Responsive and Visual Checklist
@@ -224,42 +222,3 @@ npm run test:e2e -- --update-snapshots
 
 # Full suite from the repository root
 npm run test:all
-```
-
-Prerequisites: PostgreSQL running, `.env` configured from `.env.example`, `npx prisma migrate deploy`, and `npm run seed` completed. The seed is safe to run repeatedly.
-
----
-
-## 6. Final Results
-
-Filled in from the final `main` branch before submission. Paste the actual terminal output alongside this table.
-
-| Suite | Command | Tests | Passed | Failed | Skipped |
-|---|---|---|---|---|---|
-| Server unit | `npm run test` (server) | | | | |
-| Server API | `npm run test` (server) | | | | |
-| Client UI + style | `npm run test` (client) | | | | |
-| Playwright responsive | `npm run test:e2e` | | | | |
-| Playwright E2E | `npm run test:e2e` | | | | |
-| **Total** | | | | | |
-
-**Evidence:** terminal output screenshots stored under `artifacts/lab-02/test-output/`.
-
-**Declaration:** no test in this plan is skipped, disabled, commented out, or passing for a reason unrelated to its stated purpose.
-
----
-
-## 7. Known Limitations and Deferred Tests
-
-| Item | Reason | Planned sprint |
-|---|---|---|
-| No authentication or authorization tests | Excluded from Lab 2; the Requester header is a testing mechanism, not a security boundary | Lab 3 |
-| No concurrency test for simultaneous ticket creation | BR-05 is covered by the transactional allocation in UNIT-02; a true load test needs tooling outside the Lab 2 stack | Team-project phase |
-| No virus or content scanning of uploads | Not in the stakeholder request; type and size validation only | Not planned |
-| No cross-browser matrix | Playwright runs Chromium only in Lab 2 to keep the suite fast | Later sprint if required |
-| No visual regression baselines | Screenshots are captured for inspection; pixel-diff baselines are deferred until the UI stabilises | Lab 4 |
-| Contrast checked manually, not automated | An automated axe pass is planned once the component set is final | Lab 3 |
-
----
-
-*Prepared with AI specification-agent assistance. Reviewed, corrected, and approved by the student.*
