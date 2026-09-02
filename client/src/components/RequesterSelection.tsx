@@ -76,18 +76,26 @@ export default function RequesterSelection() {
       />
     );
   }
-
-  return (
-    <div style={{ maxWidth: "500px", margin: "2rem auto", padding: "0 1rem" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "1.5rem", color: "var(--zg-text)" }}>
-        Select Your Account
-      </h2>
+  
+    return (
+    <div style={{ maxWidth: "500px", margin: "2rem auto", padding: "0 1rem", textAlign: "center" }}>
+      <h1 style={{ color: "var(--zg-primary)", marginBottom: "0.5rem", fontSize: "2rem", fontWeight: "bold" }}>
+        TokTickIT
+      </h1>
+      <p style={{ color: "var(--zg-text-muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
+        Lab 2 Testing Environment: This selector is for development testing purposes only and does not represent a real authentication system.
+      </p>
+      
       <div style={{ 
         background: "var(--zg-surface)", 
         padding: "2rem", 
         borderRadius: "0.75rem", 
-        border: "1px solid var(--zg-border)" 
+        border: "1px solid var(--zg-border)",
+        textAlign: "left"
       }}>
+        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem", color: "var(--zg-text)" }}>
+          Select Your Account
+        </h2>
         <FormSelect
           id="requester-select"
           label="Development Requester"
