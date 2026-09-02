@@ -5,6 +5,12 @@ export interface Category {
   name: string;
 }
 
+export interface Requester {
+  id: number;
+  name: string;
+  email: string;
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
@@ -27,4 +33,16 @@ export async function checkSystem(): Promise<SystemStatus> {
   }
   const categories: Category[] = await catRes.json();
   return { online: true, categories };
+}
+
+// Issue 8 — fetch requesters from the backend.
+// Calls GET /api/requesters to get all active requesters for the Development Requester selector.
+// Throwing on failure lets the UI show an error state.
+export async function fetchRequesters(): Promise<Requester[]> {
+  const res = await fetch(`${API_URL}/api/requesters`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch requesters");
+  }
+  const requesters: Requester[] = await res.json();
+  return requesters;
 }

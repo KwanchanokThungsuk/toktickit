@@ -12,6 +12,7 @@
 | 5 | Please generate the `docs/lab-02/api-spec.md` file defining the REST API contract for the Requester ticketing system. | ตรวจสอบ Endpoint, HTTP Status Code และ Headers ก่อนบันทึกนำไปใช้งานจริง |
 | 6 | Read docs/lab-02/specification.md, Section 7 (Data Changes), and update the database schema accordingly. Create seed data with 4 Categories, 6 Related Systems, 4 active Requesters, and 1 inactive Requester. Ensure the seed script is idempotent, so running it multiple times does not create duplicate data. Provide the terminal commands needed to run the migration and execute the seed script. | ตรวจสอบ schema และ seed ที่ ai สร้างว่าต้องกับที่ในแลปกำหนดหรือไม่|
 | 7 | Implement Zen Green UI foundation (AppShell, Badge, Forms, State components) step-by-step using .tsx strictly, and write corresponding unit tests. | ตรวจสอบโครงสร้าง Zen Green Theme โค้ดคอมโพเนนต์ และผลลัพธ์ของ Unit Tests ด้วย React Testing Library ให้ผ่านทุกเกณฑ์ก่อนบันทึกลงโปรเจกต์ |
+| 8 | Implement Issue #8 step-by-step: Create backend API for active requesters, build Frontend Context and Selection UI, integrate into App.tsx, and write unit tests. | ตรวจสอบโค้ด API และ Context ว่าดึงเฉพาะ Active User จริง แก้ไขข้อผิดพลาดของ AI ที่เผลอ import ไฟล์ .js และใช้คลาส Bootstrap เก่า ก่อนรันเทสต์ฝั่ง Client ให้ผ่านทั้งหมด |
 
 ## Reflection
     ใน Issue 5 ในตอนแรกยังไม่คอ่ยแน่ในว่าใน file specification.md ต้องใส่อะไรบ้าง จึงให้ ai มาช่วยร่างโครงสร้าง รวมถึงไฟล์ อื่น ๆ ที่ต้องทำใน issue นี้ด้้วย และได้อ่านทำความเข้าใจพวก enginerring contract, APT contract, Business Rule, Acceptance Criteria
@@ -20,3 +21,5 @@
     ใน Issue 6 เป็นการให้ ai ไปอ่าน file specification.md เพื่อมาทำ database ซึ่งได้มีการใช้คำสั่งที่ไม่คุ้น นั่นคือ upsert ซึ่งเป็นคำสั่งที่ รันคำสั่งซ้ำได้โดยข้อมูลไม่ซ้ำซ้อน ได้มี error เป็นขีแดงขึ้นใน code ซึี่งเราแก้ปัญหาโดยการใช้ Restart TS Server
 
     ใน Issue 7 ได้มีการให้ AI วางโครงสร้างพื้นฐานของหน้าแอปตาม Zen Green theme ในตอนแรกมีปัญหาคือเราได้สั่ง AI ด้วย prompts เดียว สิ่งที่เกิดขึ้นคือ code ที่ generate ออกกมาค่อนข้างมั่ว ทำให้ต้องทำใหม่โดยการเคย ๆ prompts ไปทีละ steps
+
+    ใน Issue 8 ได้มีการสร้าง API และมีการดึง API มาใช้ในหน้สเว็ป ซึ่งในตอนแรกขั้นตอนนี้ดิฉันไม่เคยทำมาก่อนทำให้ไม่รู้ว่าต้องเริ่มเขียนอะไรตรงไหน จึงใช้ AI เข้ามาและอ่านโค้ดที่ถูก Generate จนเข้าใจ รวมทั้งต้องตรวจสอบเพราะ AI ยังมี เผลอเรียก ไฟล์ .js เข้ามาใช้อีกด้วย ขั้นตอนนี้เราได้แบ่ง prompt เป็น step เหมือนเดิมเพื่อให้ง่ายต่อการตรวจสอบและทำความเข้าใจ

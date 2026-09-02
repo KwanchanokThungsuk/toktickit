@@ -42,4 +42,26 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Issue 8 — Requester list
+// Add:  GET /api/requesters
+//   -> read active requesters from PostgreSQL via getPrisma().requesterUser.findMany(...)
+//   -> filter where isActive = true
+//   -> return each { id, name, email } ordered by name ascending
+//   -> on failure, respond 500 with a safe message (no internal details)
+app.get("/api/requesters", async (_req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+    const requesters = await prisma.requesterUser.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    });
+    res.status(200).json(requesters);
+  } catch (error) {
+    console.error("DATABASE ERROR:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default app;
