@@ -8,7 +8,8 @@
 |----|--------|------------------|
 | #5 | feature/5-lab2-spec-contract | Commented and approved |
 | #6 | feature/6-data-model-seed | approved |
-| #7 | feature/7-zen-green-foundation |  |
+| #7 | feature/7-zen-green-foundation | approved |
+| #8 | feature/8-requester-context |  |
 
 
 **feature/5-lab2-spec-contract**
@@ -18,4 +19,8 @@ How I responded: I add the current status in the specification.md, ui-spec.md, t
 
 **feature/6-data-model-seed**
 Reviewer comment I received: Looks good. It aligned with the Lab 2 Sprint engineering contract.
+How I responded: Merged.
+
+**feature/7-zen-green-foundation**
+Reviewer comment I received: I see no problem. The test passed all correctly and the UI looks good.
 How I responded: Merged.
