@@ -84,50 +84,69 @@ app.get("/api/related-systems", async (_req: Request, res: Response) => {
 
 app.post("/api/tickets", async (req: Request, res: Response): Promise<any> => {
   try {
-    const { requesterId, categoryId, relatedSystemId, summary, description, requestedPriority } = req.body;
-
-    // 1. ตรวจสอบข้อมูล Summary (AC-09, AC-10)
-    if (!summary || summary.trim().length === 0) {
-      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Summary is required" });
+    // 1. ดึง requesterId จาก Header (ป้องกันการสวมรอยจาก req.body)
+    const requesterIdHeader = req.header("X-Requester-Id");
+    if (!requesterIdHeader) {
+      return res.status(401).json({ error: "UNAUTHORIZED", message: "Missing X-Requester-Id header" });
     }
-    if (summary.trim().length < 10) {
-      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Summary must be at least 10 characters long" });
+    const requesterId = Number(requesterIdHeader);
+
+    const { categoryId, relatedSystemId, summary, description, requestedPriority } = req.body;
+
+    // 2. ตรวจสอบ Validation อย่างละเอียดตามสเปก
+    if (!summary || summary.trim().length < 10 || summary.trim().length > 150) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Summary must be 10-150 characters" });
+    }
+
+    if (!description || description.trim().length < 20 || description.trim().length > 5000) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Description must be 20-5000 characters" });
+    }
+
+    const validPriorities = ["LOW", "MEDIUM", "HIGH"];
+    if (!requestedPriority || !validPriorities.includes(requestedPriority)) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Priority must be LOW, MEDIUM, or HIGH" });
     }
 
     const prisma = getPrisma();
 
-    // 2. ตรวจสอบว่า Requester มีอยู่จริงและสถานะ Active (API-05)
-    const requester = await prisma.requesterUser.findUnique({ where: { id: Number(requesterId) } });
+    // 3. ตรวจสอบสถานะ Active ของข้อมูลที่อ้างอิง
+    const requester = await prisma.requesterUser.findUnique({ where: { id: requesterId } });
     if (!requester || !requester.isActive) {
       return res.status(400).json({ error: "REQUESTER_INVALID", message: "Invalid or inactive requester" });
     }
 
-    // 3. ตรวจสอบว่า Category มีอยู่จริง (API-04)
     const category = await prisma.category.findUnique({ where: { id: Number(categoryId) } });
-    if (!category) {
-      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Invalid category" });
+    if (!category || !category.isActive) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Invalid or inactive category" });
     }
 
-    // 4. รันหมายเลขตั๋วใหม่ (BR-04)
-    const ticketNumber = await generateTicketNumber(prisma);
+    const relatedSystem = await prisma.relatedSystem.findUnique({ where: { id: Number(relatedSystemId) } });
+    if (!relatedSystem || !relatedSystem.isActive) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "Invalid or inactive related system" });
+    }
 
-    // 5. บันทึกตั๋วลงฐานข้อมูล (AC-01, AC-12)
-    const newTicket = await prisma.ticket.create({
-      data: {
-        ticketNumber,
-        requesterId: Number(requesterId),
-        categoryId: Number(categoryId),
-        relatedSystemId: Number(relatedSystemId),
-        summary: summary.trim(),
-        description: description?.trim() || "",
-        requestedPriority: requestedPriority || "MEDIUM",
-        currentStatus: "NEW" // สถานะเริ่มต้น (BR-02)
-      }
+    // 4. ใช้ $transaction เพื่อจัดการ Concurrency (BR-05)
+    // ส่ง tx เข้าไปใน generateTicketNumber แทน prisma ตัวหลัก
+    const newTicket = await prisma.$transaction(async (tx: any) => {
+      const ticketNumber = await generateTicketNumber(tx);
+
+      return await tx.ticket.create({
+        data: {
+          ticketNumber,
+          requesterId, // ใช้จาก Header
+          categoryId: Number(categoryId),
+          relatedSystemId: Number(relatedSystemId),
+          summary: summary.trim(),
+          description: description.trim(),
+          requestedPriority,
+          currentStatus: "NEW"
+        }
+      });
     });
 
     return res.status(201).json(newTicket);
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" }); // Safe error (AC-34)
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
