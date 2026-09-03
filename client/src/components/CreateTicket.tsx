@@ -26,6 +26,10 @@ const focusStyle = {
   boxShadow: "0 0 0 0.1875rem var(--zg-focus-ring)",
 };
 
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILES = 5;
+
 export default function CreateTicket() {
   const { selectedRequester } = useRequester();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,9 +38,15 @@ export default function CreateTicket() {
   const [errorMessage, setErrorMessage] = useState("");
   const [formValues, setFormValues] = useState<FormValues>(initialFormValues);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  
+  // Attachment states
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successTicketNumber, setSuccessTicketNumber] = useState("");
+  const [createdTicketId, setCreatedTicketId] = useState<number | null>(null);
   const firstInvalidField = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
 
   async function loadReferenceData() {
@@ -65,6 +75,39 @@ export default function CreateTicket() {
     setFormValues((currentValues) => ({ ...currentValues, [field]: value }));
     setValidationErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
     setSubmitError("");
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setAttachmentError("");
+    const newFiles = Array.from(files);
+
+    if (selectedFiles.length + newFiles.length > MAX_FILES) {
+      setAttachmentError(`You can upload a maximum of ${MAX_FILES} files.`);
+      return;
+    }
+
+    for (const file of newFiles) {
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        setAttachmentError("Invalid file type. Only JPG, PNG, WEBP, or PDF are allowed.");
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setAttachmentError(`File "${file.name}" exceeds the 5 MB size limit.`);
+        return;
+      }
+    }
+
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
+    // Reset input value so the same file can be selected again if needed
+    event.target.value = "";
+  }
+
+  function handleRemoveFile(indexToRemove: number) {
+    setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    setAttachmentError("");
   }
 
   function validateForm(): ValidationErrors {
@@ -131,7 +174,7 @@ export default function CreateTicket() {
             message = responseBody.message;
           }
         } catch {
-          // Keep the safe fallback for non-JSON API errors.
+          // Keep fallback
         }
         throw new Error(message);
       }
@@ -142,6 +185,9 @@ export default function CreateTicket() {
 
       const ticket = await response.json();
       setSuccessTicketNumber(ticket.ticketNumber);
+      setCreatedTicketId(ticket.id);
+
+      // TODO: If backend supports separate attachment upload endpoint, iterate and upload selectedFiles here using ticket.id
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to create ticket. Please try again.");
     } finally {
@@ -152,8 +198,11 @@ export default function CreateTicket() {
   function handleCreateAnotherTicket() {
     setFormValues(initialFormValues);
     setValidationErrors({});
+    setSelectedFiles([]);
+    setAttachmentError("");
     setSubmitError("");
     setSuccessTicketNumber("");
+    setCreatedTicketId(null);
   }
 
   function inputStyle(field: FormField) {
@@ -196,7 +245,17 @@ export default function CreateTicket() {
           <p style={{ color: "var(--zg-text-muted)" }}>Your support request has been submitted.</p>
           <p className="fs-4 fw-semibold">{successTicketNumber}</p>
           <div className="d-flex justify-content-center gap-2 flex-wrap">
-            <button type="button" className="btn btn-success" style={{ backgroundColor: "var(--zg-primary)", borderColor: "var(--zg-primary)" }}>
+            <button 
+              type="button" 
+              className="btn btn-success" 
+              style={{ backgroundColor: "var(--zg-primary)", borderColor: "var(--zg-primary)" }}
+              onClick={() => {
+                // Navigate or switch view to Ticket Detail if routing is available, e.g., window.location.hash or router
+                if (createdTicketId) {
+                  window.location.hash = `/tickets/${createdTicketId}`;
+                }
+              }}
+            >
               View Ticket
             </button>
             <button type="button" className="btn btn-outline-success" onClick={handleCreateAnotherTicket} style={{ color: "var(--zg-primary)", borderColor: "var(--zg-primary)" }}>
@@ -240,7 +299,6 @@ export default function CreateTicket() {
           </div>
         </section>
 
-            
         <section className="mb-4" aria-labelledby="classification-heading">
           <h2 id="classification-heading" className="h5 mb-3">Classification</h2>
           <div className="row g-3">
@@ -289,8 +347,41 @@ export default function CreateTicket() {
         <section className="mb-4" aria-labelledby="attachments-heading">
           <h2 id="attachments-heading" className="h5 mb-3">Attachments</h2>
           <label htmlFor="attachments" className="form-label">Supporting files</label>
-          <input id="attachments" type="file" className="form-control" />
+          <input 
+            id="attachments" 
+            type="file" 
+            className="form-control" 
+            multiple 
+            accept=".jpg,.jpeg,.png,.webp,.pdf" 
+            onChange={handleFileChange} 
+          />
           <div className="form-text" style={{ color: "var(--zg-text-muted)" }}>JPG, PNG, WEBP, or PDF. Up to 5 MB per file, maximum 5 files.</div>
+          
+          {attachmentError && (
+            <div className="text-danger small mt-1" role="alert">
+              {attachmentError}
+            </div>
+          )}
+
+          {selectedFiles.length > 0 && (
+            <div className="mt-3">
+              <div className="small fw-semibold mb-2">Selected files ({selectedFiles.length}/{MAX_FILES}):</div>
+              <ul className="list-group">
+                {selectedFiles.map((file, index) => (
+                  <li key={index} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                    <span className="text-truncate" style={{ maxWidth: "80%" }}>{file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                    <button 
+                      type="button" 
+                      className="btn btn-sm btn-outline-danger py-0 px-2" 
+                      onClick={() => handleRemoveFile(index)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         {submitError && <div className="alert mb-3" role="alert" style={{ backgroundColor: "var(--zg-error-bg)", borderColor: "var(--zg-error)", color: "var(--zg-error)" }}>{submitError}</div>}

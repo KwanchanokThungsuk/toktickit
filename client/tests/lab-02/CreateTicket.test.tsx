@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CreateTicket from "../../src/components/CreateTicket";
-import * as api from "../../src/api";
 import { RequesterProvider } from "../../src/components/RequesterContext";
+
 // Mock API functions
 vi.mock("../../src/api", () => ({
   fetchCategories: vi.fn().mockResolvedValue([{ id: 1, name: "Hardware" }]),
@@ -14,7 +14,6 @@ const mockRequester = { id: 1, name: "Charlie Brown", email: "charlie@example.co
 
 // Helper to wrap component with required context
 function renderWithContext(ui: React.ReactNode) {
-  // Mock localStorage for RequesterContext
   vi.spyOn(Storage.prototype, "getItem").mockReturnValue(JSON.stringify(mockRequester));
   return render(<RequesterProvider>{ui}</RequesterProvider>);
 }
@@ -57,7 +56,6 @@ describe("CreateTicket Component", () => {
       expect(screen.getByRole("button", { name: /submit ticket/i })).toBeInTheDocument();
     });
 
-    // Enter short summary and description
     fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: "Short" } });
     fireEvent.change(screen.getByLabelText(/description/i), { target: { value: "Too short desc" } });
 
@@ -67,8 +65,37 @@ describe("CreateTicket Component", () => {
     expect(screen.getByText(/description must be between 20 and 5000 characters/i)).toBeInTheDocument();
   });
 
+  it("validates attachment file type and size constraints", async () => {
+    renderWithContext(<CreateTicket />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /submit ticket/i })).toBeInTheDocument();
+    });
+
+    const fileInput = screen.getByLabelText(/supporting files/i);
+
+    // Test invalid file type
+    const invalidFile = new File(["dummy content"], "test.txt", { type: "text/plain" });
+    fireEvent.change(fileInput, { target: { files: [invalidFile] } });
+
+    expect(await screen.findByText(/invalid file type/i)).toBeInTheDocument();
+
+    // Test oversized file (> 5MB)
+    const largeFile = new File([new ArrayBuffer(6 * 1024 * 1024)], "large.png", { type: "image/png" });
+    fireEvent.change(fileInput, { target: { files: [largeFile] } });
+
+    expect(await screen.findByText(/exceeds the 5 mb size limit/i)).toBeInTheDocument();
+
+    // Test valid file selection and rendering in list
+    const validFile = new File(["valid image content"], "screenshot.png", { type: "image/png" });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("screenshot.png (0.00 MB)")).toBeInTheDocument();
+    });
+  });
+
   it("submits successfully and shows success screen with ticket number", async () => {
-    // Mock global fetch for successful ticket creation
     vi.spyOn(window, "fetch").mockImplementation(async (url) => {
       const urlString = String(url);
       if (urlString.includes("/api/categories")) {
@@ -78,7 +105,7 @@ describe("CreateTicket Component", () => {
         return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
       }
       if (urlString.includes("/api/tickets")) {
-        return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099" }), { status: 201 });
+        return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099", id: 101 }), { status: 201 });
       }
       return new Response(JSON.stringify({}), { status: 404 });
     });
@@ -96,14 +123,13 @@ describe("CreateTicket Component", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /submit ticket/i }));
 
-    // Verify success state appears with dynamic ticket number format
     await waitFor(() => {
       expect(screen.getByText(/TKT-/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /view ticket/i })).toBeInTheDocument();
     });
   });
 
   it("preserves form data and shows error message when API submission fails", async () => {
-    // Mock global fetch to return server error on ticket creation
     vi.spyOn(window, "fetch").mockImplementation(async (url) => {
       const urlString = String(url);
       if (urlString.includes("/api/categories")) {
@@ -132,7 +158,6 @@ describe("CreateTicket Component", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /submit ticket/i }));
 
-    // Verify error message is shown and form data is preserved
     await waitFor(() => {
       expect(screen.getByText(/unable to create ticket/i)).toBeInTheDocument();
     });
