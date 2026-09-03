@@ -187,7 +187,27 @@ export default function CreateTicket() {
       setSuccessTicketNumber(ticket.ticketNumber);
       setCreatedTicketId(ticket.id);
 
-      // TODO: If backend supports separate attachment upload endpoint, iterate and upload selectedFiles here using ticket.id
+      // เพิ่มโค้ดส่วนนี้เพื่ออัปโหลดไฟล์แนบจริงทั้งหมดไปยัง Backend
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const formData = new FormData();
+          formData.append("file", file); // ชื่อฟิลด์อาจปรับตามที่ Backend กำหนด (เช่น "attachment" หรือ "file")
+
+          const uploadResponse = await fetch(`${apiUrl}/api/tickets/${ticket.id}/attachments`, {
+            method: "POST",
+            headers: {
+              "X-Requester-Id": String(selectedRequester.id),
+              // หมายเหตุ: ห้ามใส่ "Content-Type": "application/json" เมื่อใช้ FormData 
+              // เพราะ Browser จะใส่ Content-Type: multipart/form-data พร้อม boundary ให้เองอัตโนมัติ
+            },
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload attachment: ${file.name}`);
+          }
+        }
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to create ticket. Please try again.");
     } finally {

@@ -90,3 +90,32 @@ export async function createTicket(payload: CreateTicketPayload, requesterId: nu
   }
   return res.json();
 }
+
+// เพิ่มฟังก์ชันนี้เข้าไปใน client/src/api.ts
+export async function uploadAttachment(ticketId: number, file: File, requesterId: number): Promise<any> {
+  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  const formData = new FormData();
+  formData.append("file", file); 
+
+  const response = await fetch(`${apiUrl}/api/tickets/${ticketId}/attachments`, {
+    method: "POST",
+    headers: {
+      "X-Requester-Id": String(requesterId),
+      // ห้ามใส่ Content-Type application/json เพราะใช้ FormData
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = `Failed to upload attachment: ${file.name}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.message) message = errorBody.message;
+    } catch {
+      // ใช้ fallback message เดิม
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}

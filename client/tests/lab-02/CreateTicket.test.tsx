@@ -107,6 +107,11 @@ describe("CreateTicket Component", () => {
       if (urlString.includes("/api/tickets")) {
         return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099", id: 101 }), { status: 201 });
       }
+
+      if (urlString.includes("/attachments")) {
+        return new Response(JSON.stringify({ id: 1, originalFilename: "screenshot.png" }), { status: 201 });
+      }
+      
       return new Response(JSON.stringify({}), { status: 404 });
     });
 

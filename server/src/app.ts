@@ -12,6 +12,9 @@ export const app = express();
 
 app.use(cors());          // already wired: lets the Vite dev server call this API
 app.use(express.json());
+import multer from "multer";
+
+const upload = multer({ dest: "uploads/" });
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
@@ -150,4 +153,47 @@ app.post("/api/tickets", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Attachment Upload Endpoint (Lab 2 / Issue 10)
+// ---------------------------------------------------------------------------
+app.post("/api/tickets/:id/attachments", upload.single("file"), async (req: Request, res: Response): Promise<any> => {
+  try {
+    const requesterIdHeader = req.header("X-Requester-Id");
+    if (!requesterIdHeader) {
+      return res.status(401).json({ error: "UNAUTHORIZED", message: "Missing X-Requester-Id header" });
+    }
+    const requesterId = Number(requesterIdHeader);
+    const ticketId = Number(req.params.id);
+
+    const prisma = getPrisma();
+
+    // 1. ตรวจสอบว่ามี Ticket นี้จริงและเป็นของผู้ใช้คนนี้จริงไหม
+    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket || ticket.requesterId !== requesterId) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Ticket not found or unauthorized" });
+    }
+
+    // 2. ตรวจสอบว่ามีไฟล์ถูกส่งมาหรือไม่
+    if (!req.file) {
+      return res.status(422).json({ error: "VALIDATION_ERROR", message: "No file uploaded" });
+    }
+
+    // 3. บันทึกข้อมูลไฟล์ลงตาราง Attachment ตาม Prisma Schema
+    const attachment = await prisma.attachment.create({
+      data: {
+        ticketId,
+        originalFilename: req.file.originalname,
+        storedFilename: req.file.filename,
+        contentType: req.file.mimetype,
+        fileSize: req.file.size,
+        uploadedById: requesterId,
+      },
+    });
+
+    return res.status(201).json(attachment);
+  } catch (error) {
+    console.error("ATTACHMENT UPLOAD ERROR:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 export default app;
