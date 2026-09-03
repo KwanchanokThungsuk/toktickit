@@ -5,6 +5,11 @@ export interface Category {
   name: string;
 }
 
+export interface RelatedSystem {
+  id: number;
+  name: string;
+}
+
 export interface Requester {
   id: number;
   name: string;
@@ -45,4 +50,20 @@ export async function fetchRequesters(): Promise<Requester[]> {
   }
   const requesters: Requester[] = await res.json();
   return requesters;
+}
+
+export async function fetchCategories(): Promise<Category[]> {
+  const res = await fetch(`${API_URL}/api/categories`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch categories");
+  }
+  return res.json();
+}
+
+export async function fetchRelatedSystems(): Promise<RelatedSystem[]> {
+  const res = await fetch(`${API_URL}/api/related-systems`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch related systems");
+  }
+  return res.json();
 }
