@@ -13,6 +13,7 @@
 | 6 | Read docs/lab-02/specification.md, Section 7 (Data Changes), and update the database schema accordingly. Create seed data with 4 Categories, 6 Related Systems, 4 active Requesters, and 1 inactive Requester. Ensure the seed script is idempotent, so running it multiple times does not create duplicate data. Provide the terminal commands needed to run the migration and execute the seed script. | ตรวจสอบ schema และ seed ที่ ai สร้างว่าต้องกับที่ในแลปกำหนดหรือไม่|
 | 7 | Implement Zen Green UI foundation (AppShell, Badge, Forms, State components) step-by-step using .tsx strictly, and write corresponding unit tests. | ตรวจสอบโครงสร้าง Zen Green Theme โค้ดคอมโพเนนต์ และผลลัพธ์ของ Unit Tests ด้วย React Testing Library ให้ผ่านทุกเกณฑ์ก่อนบันทึกลงโปรเจกต์ |
 | 8 | Implement Issue #8 step-by-step: Create backend API for active requesters, build Frontend Context and Selection UI, integrate into App.tsx, and write unit tests. | ตรวจสอบโค้ด API และ Context ว่าดึงเฉพาะ Active User จริง แก้ไขข้อผิดพลาดของ AI ที่เผลอ import ไฟล์ .js และใช้คลาส Bootstrap เก่า ก่อนรันเทสต์ฝั่ง Client ให้ผ่านทั้งหมด |
+| 9 | สร้างฟน้า UI create ticket รวมถึง validation ของข้อมูลเวลา user กรอก ให้เป็นไแตาม specification.md file | ตรวจสอบความถูกต้องของหน้าเว็ป และ code ว่าเป็นไปตามที่กำหนดหรือไม่ |
 
 ## Reflection
     ใน Issue 5 ในตอนแรกยังไม่คอ่ยแน่ในว่าใน file specification.md ต้องใส่อะไรบ้าง จึงให้ ai มาช่วยร่างโครงสร้าง รวมถึงไฟล์ อื่น ๆ ที่ต้องทำใน issue นี้ด้้วย และได้อ่านทำความเข้าใจพวก enginerring contract, APT contract, Business Rule, Acceptance Criteria

@@ -19,7 +19,7 @@ describe("Create Ticket API", () => {
       .send(payload);
       
     expect(res.status).toBe(422);
-    expect(res.body.error).toBe("VALIDATION_ERROR");
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("API-03: should reject summary under 10 characters", async () => {
@@ -30,7 +30,7 @@ describe("Create Ticket API", () => {
       .send(payload);
       
     expect(res.status).toBe(422);
-    expect(res.body.error).toBe("VALIDATION_ERROR");
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("API-01: should create a valid ticket and return 201", async () => {
