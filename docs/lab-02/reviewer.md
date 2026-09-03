@@ -10,7 +10,8 @@
 | #6 | feature/6-data-model-seed | approved |
 | #7 | feature/7-zen-green-foundation | approved |
 | #8 | feature/8-requester-context | Commented and approved |
-| #9 | feature/9-create-ticket-api |  |
+| #9 | feature/9-create-ticket-api | Commented and approved |
+| #10 | feature/10-create-ticket-ui |  |
 
 
 **feature/5-lab2-spec-contract**
@@ -31,6 +32,10 @@ Reviewer comment I received: The requester selector works well but I have a sugg
 How I responded: add the toktickit in the selection and the explain about is not a login/authentication screen.
 
 **feature/9-create-ticket-api**
-Reviewer comment I received:
-How I responded:
+Reviewer comment I received:I think this still needs some changes. requesterId should come from X-Requester-Id, not the request body, according to our API spec. There are also some missing backend validations such as description length, summary max length, requested priority, active category, and active related system. Also, ticket number generation is not inside the same transaction as ticket creation.
+How I responded: fixing snd merge.
+
 ## Pull Requests I reviewed for my partner
+**feature/5-specification-docs**
+My comment: Great work getting the engineering contract together. The ACs, test plans, and API routes all match the Lab 2 requirements perfectly.
+Partner's response: Merged.
