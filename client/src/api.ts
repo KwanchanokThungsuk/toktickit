@@ -67,3 +67,26 @@ export async function fetchRelatedSystems(): Promise<RelatedSystem[]> {
   }
   return res.json();
 }
+
+export interface CreateTicketPayload {
+  categoryId: number;
+  relatedSystemId: number;
+  priority: string;
+  summary: string;
+  description: string;
+}
+
+export async function createTicket(payload: CreateTicketPayload, requesterId: number) {
+  const res = await fetch(`${API_URL}/api/tickets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Requester-Id": requesterId.toString(),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create ticket");
+  }
+  return res.json();
+}
