@@ -76,6 +76,61 @@ export interface CreateTicketPayload {
   description: string;
 }
 
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
+export type TicketStatus = "NEW";
+export type TicketSortBy = "ticketNumber" | "createdAt" | "updatedAt";
+export type TicketSortOrder = "asc" | "desc";
+
+export interface TicketListItem {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  category: Category;
+  relatedSystem: RelatedSystem;
+  requestedPriority: TicketPriority;
+  currentStatus: TicketStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketListMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface TicketListResponse {
+  data: TicketListItem[];
+  meta: TicketListMeta;
+}
+
+export interface FetchTicketsOptions {
+  requesterId: number;
+  search?: string;
+  categoryId?: string;
+  relatedSystemId?: string;
+  requestedPriority?: TicketPriority;
+  currentStatus?: TicketStatus;
+  sortBy: TicketSortBy;
+  sortOrder: TicketSortOrder;
+  page: number;
+  pageSize: number;
+}
+
+export async function fetchTickets({ requesterId, ...options }: FetchTicketsOptions): Promise<TicketListResponse> {
+  const params = new URLSearchParams();
+  Object.entries(options).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
+
+  const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+    headers: { "X-Requester-Id": String(requesterId) },
+  });
+  if (!res.ok) throw new Error("Unable to load your tickets");
+  return res.json();
+}
+
 export async function createTicket(payload: CreateTicketPayload, requesterId: number) {
   const res = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
