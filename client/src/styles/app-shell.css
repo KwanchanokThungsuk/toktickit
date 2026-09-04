@@ -149,4 +149,83 @@
   .app-header__requester {
     max-width: 110px;
   }
+
+  .app-header__nav.is-open {
+    display: flex;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 0.5rem 1rem;
+    background: var(--zg-primary);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .app-header__nav.is-open .app-header__nav-item {
+    height: 44px;
+  }
+}
+
+.zg-button--primary { background: var(--zg-primary); border-color: var(--zg-primary); color: #fff; }
+.zg-button--secondary { background: var(--zg-surface); border-color: var(--zg-primary); color: var(--zg-primary); }
+.my-tickets { max-width: 1200px; margin: 0 auto; }
+.my-tickets__header, .my-tickets__pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.my-tickets__header h1 { font-size: 1.75rem; margin: 0 0 .25rem; }
+.my-tickets__header p { color: var(--zg-text-muted); margin: 0; }
+.my-tickets__actions, .my-tickets__page-controls { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.my-tickets__filters { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; background: var(--zg-surface); border: 1px solid var(--zg-border); border-radius: .5rem; }
+.my-tickets__search-control { position: relative; }
+.my-tickets__search-control .zg-form-control { padding-left: 2.25rem; }
+.my-tickets__search-icon { position: absolute; z-index: 1; top: 2.25rem; left: .75rem; width: .8rem; height: .8rem; border: 2px solid var(--zg-text-muted); border-radius: 50%; pointer-events: none; }
+.my-tickets__search-icon::after { content: ""; position: absolute; width: .45rem; height: 2px; right: -.35rem; bottom: -.2rem; background: var(--zg-text-muted); transform: rotate(45deg); transform-origin: left center; }
+.my-tickets__table-wrap { overflow-x: auto; background: var(--zg-surface); border: 1px solid var(--zg-border); border-radius: .5rem; }
+.my-tickets__table { width: 100%; border-collapse: collapse; }
+.my-tickets__table th, .my-tickets__table td { padding: .875rem .75rem; border-bottom: 1px solid var(--zg-border); text-align: left; vertical-align: middle; }
+.my-tickets__table th { color: var(--zg-text-muted); font-size: .8125rem; white-space: nowrap; }
+.my-tickets__table tbody tr:hover { background: var(--zg-pale); }
+.my-tickets__table a, .my-tickets__card-number { color: var(--zg-secondary); font-weight: 600; }
+.my-tickets__sort { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0; min-height: 2.75rem; }
+.my-tickets__sort-indicator { display: inline-block; width: 0; height: 0; margin-left: .45rem; vertical-align: middle; border-left: .3rem solid transparent; border-right: .3rem solid transparent; }
+.my-tickets__sort-indicator[data-direction="asc"] { border-bottom: .4rem solid currentColor; }
+.my-tickets__sort-indicator[data-direction="desc"] { border-top: .4rem solid currentColor; }
+.my-tickets__summary { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-tickets__cards { display: none; }
+.my-tickets__pagination { margin-top: 1rem; margin-bottom: 0; }
+.my-tickets__page { min-width: 2.5rem; border: 1px solid var(--zg-primary); color: var(--zg-primary); }
+.my-tickets__page.is-current { background: var(--zg-primary); color: #fff; }
+.my-tickets__pagination .zg-form-field { flex-direction: row; align-items: center; gap: .5rem; }
+.my-tickets__pagination .zg-form-label { margin: 0; }
+.my-tickets__skeleton-table { display: grid; gap: .75rem; padding: 1rem; background: var(--zg-surface); border: 1px solid var(--zg-border); border-radius: .5rem; }
+.my-tickets__skeleton-row { height: 3.25rem; border-radius: .25rem; background: linear-gradient(90deg, var(--zg-readonly-bg), var(--zg-pale), var(--zg-readonly-bg)); background-size: 200% 100%; animation: my-tickets-skeleton 1.2s ease-in-out infinite; }
+.my-tickets__skeleton-cards { display: none; }
+@keyframes my-tickets-skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (max-width: 991px) {
+  .my-tickets__system-column,
+  .my-tickets__updated-column {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .my-tickets__header, .my-tickets__pagination { align-items: stretch; flex-direction: column; }
+  .my-tickets__actions .btn { flex: 1; }
+  .my-tickets__filters { grid-template-columns: 1fr; padding: 1rem; }
+  .my-tickets__table-wrap { display: none; }
+  .my-tickets__cards { display: grid; gap: .75rem; }
+  .my-tickets__card { padding: 1rem; background: var(--zg-surface); border: 1px solid var(--zg-border); border-radius: .5rem; }
+  .my-tickets__card-summary { margin: .5rem 0 1rem; font-weight: 600; }
+  .my-tickets__card dl { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 0 0 1rem; }
+  .my-tickets__card dt { color: var(--zg-text-muted); font-size: .8125rem; }
+  .my-tickets__card dd { margin: .125rem 0 0; }
+  .my-tickets__badges { display: flex; gap: .5rem; }
+  .my-tickets__page-controls { justify-content: center; }
+  .my-tickets__skeleton-table { display: none; }
+  .my-tickets__skeleton-cards { display: grid; gap: .75rem; }
+  .my-tickets__skeleton-card { height: 10rem; border-radius: .5rem; background: linear-gradient(90deg, var(--zg-readonly-bg), var(--zg-pale), var(--zg-readonly-bg)); background-size: 200% 100%; animation: my-tickets-skeleton 1.2s ease-in-out infinite; }
+  .my-tickets__card-number, .my-tickets__actions .btn, .my-tickets__page-controls .btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .my-tickets__filters .zg-form-control { min-height: 44px; }
 }

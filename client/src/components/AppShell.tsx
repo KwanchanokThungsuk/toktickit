@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export interface NavItem {
   label: string;
@@ -18,12 +18,14 @@ export default function AppShell({
   children,
   title = "TokTickIT",
   navItems = [
-    { label: "My Tickets", href: "/tickets", current: true },
-    { label: "Create Ticket", href: "/tickets/new" },
+    { label: "My Tickets", href: "#/tickets", current: true },
+    { label: "Create Ticket", href: "#/tickets/new" },
   ],
   requesterName = "Alex Morgan",
   onChangeRequester,
 }: AppShellProps) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -35,13 +37,17 @@ export default function AppShell({
             <div className="app-header__wordmark">{title}</div>
           </div>
 
-          <nav className="app-header__nav" aria-label="Main navigation">
+          <nav
+            className={`app-header__nav ${mobileNavOpen ? "is-open" : ""}`}
+            aria-label="Main navigation"
+          >
             {navItems.map((item) => (
               <a
                 key={item.label}
                 href={item.href ?? "#"}
                 className={item.current ? "app-header__nav-item is-current" : "app-header__nav-item"}
                 aria-current={item.current ? "page" : undefined}
+                onClick={() => setMobileNavOpen(false)}
               >
                 {item.label}
               </a>
@@ -49,7 +55,7 @@ export default function AppShell({
           </nav>
 
           <div className="app-header__user">
-            <button type="button" className="app-header__menu" aria-label="Open navigation menu">
+            <button type="button" className="app-header__menu" aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>
               <span />
               <span />
               <span />

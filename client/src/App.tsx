@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { RequesterProvider, useRequester } from "./components/RequesterContext";
 import RequesterSelection from "./components/RequesterSelection";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
+import MyTickets from "./components/MyTickets";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
 
@@ -9,19 +11,31 @@ import "./styles/theme.css";
 // Conditionally renders RequesterSelection or AppShell based on selectedRequester.
 function AppContent() {
   const { selectedRequester, clearSelectedRequester } = useRequester();
+  const [view, setView] = useState(() => window.location.hash || "#/tickets");
+
+  useEffect(() => {
+    const handleHashChange = () => setView(window.location.hash || "#/tickets");
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // AC-02: If no requester is selected, show RequesterSelection instead of AppShell
   if (!selectedRequester) {
     return <RequesterSelection />;
   }
 
-  // If a requester is selected, show AppShell with the main app content
+  const showingCreateTicket = view === "#/tickets/new";
+
   return (
-    <AppShell 
+    <AppShell
       requesterName={selectedRequester.name}
       onChangeRequester={clearSelectedRequester}
+      navItems={[
+        { label: "My Tickets", href: "#/tickets", current: !showingCreateTicket },
+        { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
+      ]}
     >
-      <CreateTicket />
+      {showingCreateTicket ? <CreateTicket /> : <MyTickets key={selectedRequester.id} />}
     </AppShell>
   );
 }
