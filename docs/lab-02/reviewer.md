@@ -43,8 +43,8 @@ How I responded: Merged.
 - How I responded: I fixed all of the pain point that reviewer commented.
 
 **feature/11-my-tickets-api**
-- Reviewer comment I received:
-- How I responded:
+- Reviewer comment I received: Everything looks good. The main requirements for search, filters, sorting, pagination, requester switching, and the different UI states are covered.
+- How I responded: merge.
 
 ## Pull Requests I reviewed for my partner
 **feature/5-specification-docs**
@@ -70,7 +70,12 @@ How I responded: Merged.
     - **One thing to verify**: idempotency replay should still return the existing ticket with the same key/payload.
 - Partner's response: I already check the idempotency replay. It really need to fix. I will work on that.
 
-****
+**feature/9-my-tickets**
 - My comment:
-- Partner's response:
+
+        verall, the My Tickets implementation looks good and the main functionality works as expected. I tested the requester ownership filtering, search, filters, sorting, pagination, and empty states, and the tickets are correctly visible only to their corresponding requester.
+        A few minor suggestions:
+                - The search placeholder currently mentions only ticket number, summary, and description, while the search also supports category and related system. Consider updating the placeholder to reflect that.
+                - It may be worth adding test coverage for changing page size (10/20/50), responsive behavior on mobile/tablet, and sorting when multiple tickets have the same primary sort value.
+- Partner's response: fixed
 
