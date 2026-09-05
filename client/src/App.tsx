@@ -4,6 +4,7 @@ import RequesterSelection from "./components/RequesterSelection";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
 import MyTickets from "./components/MyTickets";
+import RequesterTicketDetail from "./components/RequesterTicketDetail";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
 
@@ -25,6 +26,7 @@ function AppContent() {
   }
 
   const showingCreateTicket = view === "#/tickets/new";
+  const detailMatch = view.match(/^#\/tickets\/(\d+)$/);
 
   return (
     <AppShell
@@ -35,7 +37,7 @@ function AppContent() {
         { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
       ]}
     >
-      {showingCreateTicket ? <CreateTicket /> : <MyTickets key={selectedRequester.id} />}
+      {showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets key={selectedRequester.id} />}
     </AppShell>
   );
 }

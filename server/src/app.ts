@@ -4,6 +4,7 @@ import multer from "multer";
 
 import { getPrisma } from "./prisma.js";
 import ticketGetRouter from "./routes/tickets.get.js";
+import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
 import ticketPostRouter from "./routes/tickets.post.js";
 
 export const app = express();
@@ -12,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(ticketGetRouter);
+app.use(ticketDetailGetRouter);
 app.use(ticketPostRouter);
 
 const upload = multer({
