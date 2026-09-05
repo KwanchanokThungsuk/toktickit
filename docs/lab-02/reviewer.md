@@ -12,6 +12,12 @@
 | #8 | feature/8-requester-context | Commented and approved |
 | #9 | feature/9-create-ticket-api | Commented and approved |
 | #10 | feature/10-create-ticket-ui | Commented and approved |
+| #11 | feature/11-my-tickets-api | Commented and approved |
+| #12 | feature/12-my-tickets-ui | Commented and approved |
+| #13 | feature/13-ticket-detail | Commented and approved |
+| #14 | feature/14-attachment-lifecycle | Commented and approved |
+| #15 | feature/15-final-ux-accessibility | approved |
+| #16 |  |  |
 
 
 **feature/5-lab2-spec-contract**
@@ -55,8 +61,17 @@ How I responded: Merged.
 - How I responded: fixed
 
 **feature/14-attachment-lifecycle**
-- Reviewer comment The attachment lifecycle looks good overall, but I found one thing that doesn't match the Lab 2 contract. BR-24 says the 5 MB attachment size limit must be enforced on both the client and server. The server validates it correctly, but adding an attachment from Ticket Detail currently sends the file directly to the API without checking file.size on the client first. Please add client-side attachment validation before uploading.
+- Reviewer comment I received: The attachment lifecycle looks good overall, but I found one thing that doesn't match the Lab 2 contract. BR-24 says the 5 MB attachment size limit must be enforced on both the client and server. The server validates it correctly, but adding an attachment from Ticket Detail currently sends the file directly to the API without checking file.size on the client first. Please add client-side attachment validation before uploading.
 - How I responded: fixed
+
+**feature/15-final-ux-accessibility**
+- Reviewer comment I received: Looks good. The responsive layouts cover the required desktop, tablet, and mobile viewports. The test and screenshot look fine to me.
+- How I responded: merge.
+
+****
+- Reviewer comment I received: 
+- How I responded: 
+
 
 ## Pull Requests I reviewed for my partner
 **feature/5-specification-docs**
@@ -85,10 +100,10 @@ How I responded: Merged.
 **feature/9-my-tickets**
 - My comment:
 
-        verall, the My Tickets implementation looks good and the main functionality works as expected. I tested the requester ownership filtering, search, filters, sorting, pagination, and empty states, and the tickets are correctly visible only to their corresponding requester.
-        A few minor suggestions:
-                - The search placeholder currently mentions only ticket number, summary, and description, while the search also supports category and related system. Consider updating the placeholder to reflect that.
-                - It may be worth adding test coverage for changing page size (10/20/50), responsive behavior on mobile/tablet, and sorting when multiple tickets have the same primary sort value.
+    verall, the My Tickets implementation looks good and the main functionality works as expected. I tested the requester ownership filtering, search, filters, sorting, pagination, and empty states, and the tickets are correctly visible only to their corresponding requester.
+    A few minor suggestions:
+    - The search placeholder currently mentions only ticket number, summary, and description, while the search also supports category and related system. Consider updating the placeholder to reflect that.
+    - It may be worth adding test coverage for changing page size (10/20/50), responsive behavior on mobile/tablet, and sorting when multiple tickets have the same primary sort value.
 - Partner's response: fixed
 
 **feature/10-ticket-detail-attachments**
@@ -98,3 +113,7 @@ How I responded: Merged.
 **feature/11-e2e-visual-qa**
 - My comment: Tested locally. All server/client tests and builds passed, and Playwright E2E passed 9/9 across desktop, tablet, and mobile. Responsive and visual QA also look good. AC-01 to AC-26 are covered. Everything looks good to me.
 - Partner's response: Merged.
+
+**feature/12-docs-release**
+- My comment: 
+- Partner's response: 
