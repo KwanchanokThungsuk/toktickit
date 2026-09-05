@@ -17,7 +17,7 @@
 | #13 | feature/13-ticket-detail | Commented and approved |
 | #14 | feature/14-attachment-lifecycle | Commented and approved |
 | #15 | feature/15-final-ux-accessibility | approved |
-| #16 |  |  |
+| #16 | feature/16-final-documentation | approved |
 
 
 **feature/5-lab2-spec-contract**
@@ -68,9 +68,9 @@ How I responded: Merged.
 - Reviewer comment I received: Looks good. The responsive layouts cover the required desktop, tablet, and mobile viewports. The test and screenshot look fine to me.
 - How I responded: merge.
 
-****
-- Reviewer comment I received: 
-- How I responded: 
+**feature/16-final-documentation**
+- Reviewer comment I received: Looks great kub. The README.md file is up to date.
+- How I responded: merged.
 
 
 ## Pull Requests I reviewed for my partner
@@ -115,5 +115,5 @@ How I responded: Merged.
 - Partner's response: Merged.
 
 **feature/12-docs-release**
-- My comment: 
-- Partner's response: 
+- My comment: Checked the README instructions and verified the installation, database setup, application startup, tests, builds, and Playwright commands. Everything works as documented.
+- Partner's response: Merged.
