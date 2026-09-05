@@ -345,6 +345,61 @@ describe("RequesterTicketDetail", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("focuses the removal reason when the dialog opens", async () => {
+    render(<RequesterTicketDetail ticketId={42} />);
+
+    await screen.findByRole("heading", {
+      name: "Ticket Details",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    expect(screen.getByLabelText("Reason for removal")).toHaveFocus();
+  });
+
+  it("traps Tab and Shift+Tab inside the removal dialog", async () => {
+    render(<RequesterTicketDetail ticketId={42} />);
+
+    await screen.findByRole("heading", {
+      name: "Ticket Details",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    const reason = screen.getByLabelText("Reason for removal");
+    const confirm = screen.getByRole("button", {
+      name: "Remove Attachment",
+    });
+
+    fireEvent.change(reason, {
+      target: { value: "Uploaded the wrong file" },
+    });
+    expect(confirm).toBeEnabled();
+
+    fireEvent.keyDown(reason, { key: "Tab", shiftKey: true });
+    expect(confirm).toHaveFocus();
+
+    fireEvent.keyDown(confirm, { key: "Tab" });
+    expect(reason).toHaveFocus();
+  });
+
+  it("closes the removal dialog with Escape and restores trigger focus", async () => {
+    render(<RequesterTicketDetail ticketId={42} />);
+
+    await screen.findByRole("heading", {
+      name: "Ticket Details",
+    });
+
+    const removeButton = screen.getByRole("button", { name: "Remove" });
+    fireEvent.click(removeButton);
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(removeButton).toHaveFocus();
+    expect(removeAttachment).not.toHaveBeenCalled();
+  });
+
   it("rejects an attachment larger than 5 MB before uploading", async () => {
     const { container } = render(
       <RequesterTicketDetail ticketId={42} />,

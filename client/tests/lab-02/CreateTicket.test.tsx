@@ -172,6 +172,41 @@ describe("CreateTicket Component", () => {
     expect(summaryInput).toHaveValue("Important system bug found");
   });
 
+  it("does not display technical details from an internal server error", async () => {
+    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes("/api/categories")) {
+        return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
+      }
+      if (urlString.includes("/api/related-systems")) {
+        return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
+      }
+      if (urlString.includes("/api/tickets")) {
+        return new Response(JSON.stringify({
+          error: {
+            message: "PrismaClientKnownRequestError: SELECT * FROM Ticket at /srv/toktickit/server/src/routes/tickets.post.ts:99",
+          },
+        }), { status: 500 });
+      }
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+
+    renderWithContext(<CreateTicket />);
+
+    await screen.findByRole("button", { name: /submit ticket/i });
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/related system/i), { target: { value: "1" } });
+    const summaryInput = screen.getByLabelText(/summary/i);
+    fireEvent.change(summaryInput, { target: { value: "Important system bug found" } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: "Detailed description of the critical bug happening right now." } });
+
+    fireEvent.click(screen.getByRole("button", { name: /submit ticket/i }));
+
+    expect(await screen.findByText("Unable to create ticket. Please try again.")).toBeInTheDocument();
+    expect(screen.queryByText(/PrismaClientKnownRequestError|SELECT \* FROM Ticket|\/srv\/toktickit/)).not.toBeInTheDocument();
+    expect(summaryInput).toHaveValue("Important system bug found");
+  });
+
   it("keeps the created ticket and retries an attachment that fails to upload", async () => {
     vi.spyOn(window, "fetch").mockImplementation(async (url) => {
       const urlString = String(url);

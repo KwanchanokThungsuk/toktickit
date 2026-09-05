@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
+import { internalServerError } from "../internal-error.js";
 
 const router = Router();
 
@@ -60,10 +61,7 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
 
     return res.status(200).json(ticket);
   } catch (error) {
-    console.error("GET /api/tickets/:id ERROR:", error);
-    return res.status(500).json({
-      error: { code: "INTERNAL_ERROR", message: "Unable to load ticket" },
-    });
+    return internalServerError(res, "GET /api/tickets/:id ERROR:", error);
   }
 });
 

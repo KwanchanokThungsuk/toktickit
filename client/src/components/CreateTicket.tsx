@@ -172,15 +172,17 @@ export default function CreateTicket() {
 
       if (!response.ok) {
         let message = "Unable to create ticket. Please try again.";
-        try {
-          const responseBody = await response.json();
-          if (typeof responseBody?.error?.message === "string") {
-            message = responseBody.error.message;
-          } else if (typeof responseBody?.message === "string") {
-            message = responseBody.message;
+        if (response.status < 500) {
+          try {
+            const responseBody = await response.json();
+            if (typeof responseBody?.error?.message === "string") {
+              message = responseBody.error.message;
+            } else if (typeof responseBody?.message === "string") {
+              message = responseBody.message;
+            }
+          } catch {
+            // Keep fallback
           }
-        } catch {
-          // Keep fallback
         }
         throw new Error(message);
       }
@@ -245,7 +247,7 @@ export default function CreateTicket() {
 
   if (loadState === "loading") {
     return (
-      <div className="container py-4" aria-live="polite">
+      <div className="container py-4 create-ticket" aria-live="polite">
         <div className="alert border" role="status" style={{ backgroundColor: "var(--zg-pale)", borderColor: "var(--zg-border)" }}>
           <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
           Loading ticket options...
@@ -256,7 +258,7 @@ export default function CreateTicket() {
 
   if (loadState === "error") {
     return (
-      <div className="container py-4">
+      <div className="container py-4 create-ticket">
         <div className="alert" role="alert" style={{ backgroundColor: "var(--zg-error-bg)", borderColor: "var(--zg-error)", color: "var(--zg-error)" }}>
           <h1 className="h5">Unable to load ticket options</h1>
           <p>{errorMessage}</p>
@@ -270,7 +272,7 @@ export default function CreateTicket() {
 
   if (successTicketNumber) {
     return (
-      <div className="container py-4" style={{ maxWidth: "960px", color: "var(--zg-text)" }}>
+      <div className="container py-4 create-ticket" style={{ maxWidth: "960px", color: "var(--zg-text)" }}>
         <section className="rounded-3 p-4 text-center" aria-labelledby="ticket-created-heading" style={{ backgroundColor: "var(--zg-pale)", border: "1px solid var(--zg-border)" }}>
           <div className="fs-1 mb-2" aria-hidden="true">✓</div>
           <h1 id="ticket-created-heading" className="h3">Ticket created</h1>
@@ -301,7 +303,7 @@ export default function CreateTicket() {
   }
 
   return (
-    <div className="container py-4" style={{ maxWidth: "960px", color: "var(--zg-text)" }}>
+    <div className="container py-4 create-ticket" style={{ maxWidth: "960px", color: "var(--zg-text)" }}>
       <header className="mb-4">
         <h1 className="h2 mb-1">Create Ticket</h1>
         <p className="mb-0" style={{ color: "var(--zg-text-muted)" }}>Submit a support request to the IT team.</p>
@@ -316,14 +318,14 @@ export default function CreateTicket() {
               ["Ticket Date", "Generated on submit"],
               ["Current Status", "Generated on submit"],
             ].map(([label, value]) => (
-              <div className="col-md-4" key={label}>
+              <div className="col-md-6 col-lg-4" key={label}>
                 <div className="rounded-2 p-3 h-100" style={readonlyStyle}>
                   <div className="form-label mb-1" style={{ color: "var(--zg-text-muted)" }}>{label}</div>
                   <div>{value}</div>
                 </div>
               </div>
             ))}
-            <div className="col-md-4">
+            <div className="col-md-6 col-lg-4">
               <div className="rounded-2 p-3 h-100" style={readonlyStyle}>
                 <div className="form-label mb-1" style={{ color: "var(--zg-text-muted)" }}>Requester</div>
                 <div>{selectedRequester?.name || "Unknown"}</div>
@@ -335,7 +337,7 @@ export default function CreateTicket() {
         <section className="mb-4" aria-labelledby="classification-heading">
           <h2 id="classification-heading" className="h5 mb-3">Classification</h2>
           <div className="row g-3">
-            <div className="col-md-4">
+            <div className="col-md-6 col-lg-4">
               <label htmlFor="category" className="form-label">Category<span aria-hidden="true" className="text-danger ms-1">*</span></label>
               <select id="category" className="form-select" value={formValues.category} onChange={(event) => updateField("category", event.target.value)} aria-required="true" aria-invalid={validationErrors.category ? "true" : undefined} aria-describedby={validationErrors.category ? "category-error" : undefined} style={inputStyle("category")} onFocus={(event) => Object.assign(event.currentTarget.style, focusStyle)} onBlur={(event) => { event.currentTarget.style.borderColor = ""; event.currentTarget.style.boxShadow = ""; }}>
                 <option value="">Select a category...</option>
@@ -343,7 +345,7 @@ export default function CreateTicket() {
               </select>
               {validationErrors.category && <div id="category-error" className="text-danger small mt-1" role="alert">{validationErrors.category}</div>}
             </div>
-            <div className="col-md-4">
+            <div className="col-md-6 col-lg-4">
               <label htmlFor="related-system" className="form-label">Related System<span aria-hidden="true" className="text-danger ms-1">*</span></label>
               <select id="related-system" className="form-select" value={formValues.relatedSystem} onChange={(event) => updateField("relatedSystem", event.target.value)} aria-required="true" aria-invalid={validationErrors.relatedSystem ? "true" : undefined} aria-describedby={validationErrors.relatedSystem ? "related-system-error" : undefined} style={inputStyle("relatedSystem")} onFocus={(event) => Object.assign(event.currentTarget.style, focusStyle)} onBlur={(event) => { event.currentTarget.style.borderColor = ""; event.currentTarget.style.boxShadow = ""; }}>
                 <option value="">Select a related system...</option>
@@ -351,7 +353,7 @@ export default function CreateTicket() {
               </select>
               {validationErrors.relatedSystem && <div id="related-system-error" className="text-danger small mt-1" role="alert">{validationErrors.relatedSystem}</div>}
             </div>
-            <div className="col-md-4">
+            <div className="col-md-6 col-lg-4">
               <label htmlFor="priority" className="form-label">Priority<span aria-hidden="true" className="text-danger ms-1">*</span></label>
               <select id="priority" className="form-select" value={formValues.priority} onChange={(event) => updateField("priority", event.target.value)} aria-required="true" aria-invalid={validationErrors.priority ? "true" : undefined} aria-describedby={validationErrors.priority ? "priority-error" : undefined} style={inputStyle("priority")} onFocus={(event) => Object.assign(event.currentTarget.style, focusStyle)} onBlur={(event) => { event.currentTarget.style.borderColor = ""; event.currentTarget.style.boxShadow = ""; }}>
                 <option value="LOW">Low</option>
@@ -419,7 +421,7 @@ export default function CreateTicket() {
 
         {submitError && <div className="alert mb-3" role="alert" style={{ backgroundColor: "var(--zg-error-bg)", borderColor: "var(--zg-error)", color: "var(--zg-error)" }}>{submitError}</div>}
 
-        <div className="d-flex justify-content-between gap-2 pt-3 border-top" style={{ borderColor: "var(--zg-border)" }}>
+        <div className="create-ticket__actions d-flex justify-content-between gap-2 pt-3 border-top" style={{ borderColor: "var(--zg-border)" }}>
           <button type="button" className="btn btn-outline-success" style={{ color: "var(--zg-primary)", borderColor: "var(--zg-primary)" }}>Cancel</button>
           <button type="submit" className="btn btn-success" disabled={isSubmitting} aria-busy={isSubmitting} style={{ backgroundColor: "var(--zg-primary)", borderColor: "var(--zg-primary)" }}>
             {isSubmitting && <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />}

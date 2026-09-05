@@ -65,6 +65,17 @@
     const [isRemoving, setIsRemoving] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const removalReasonRef = useRef<HTMLTextAreaElement>(null);
+    const removalTriggerRef = useRef<HTMLButtonElement | null>(null);
+    const removalDialogRef = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+      if (removingAttachment) {
+        removalReasonRef.current?.focus();
+      } else if (removalTriggerRef.current?.isConnected) {
+        removalTriggerRef.current.focus();
+      }
+    }, [removingAttachment]);
 
     useEffect(() => {
       let active = true;
@@ -306,6 +317,50 @@
       }
     }
 
+    function closeRemovalDialog() {
+      if (isRemoving) {
+        return;
+      }
+
+      setRemovingAttachment(null);
+      setRemovalReason("");
+    }
+
+    function handleRemovalDialogKeyDown(
+      event: React.KeyboardEvent<HTMLElement>,
+    ) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRemovalDialog();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        removalDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]',
+        ) ?? [],
+      );
+
+      if (focusableElements.length === 0) {
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+
     return (
       <div className="ticket-detail">
         <div className="ticket-detail__breadcrumb">
@@ -523,7 +578,9 @@
                       <button
                         type="button"
                         className="btn btn-outline-danger"
-                        onClick={() => {
+                        onClick={(event) => {
+                          removalTriggerRef.current =
+                            event.currentTarget;
                           setRemovingAttachment(attachment);
                           setRemovalReason("");
                         }}
@@ -544,10 +601,12 @@
             role="presentation"
           >
             <section
+              ref={removalDialogRef}
               className="ticket-detail__dialog"
               role="dialog"
               aria-modal="true"
               aria-labelledby="remove-attachment-heading"
+              onKeyDown={handleRemovalDialogKeyDown}
             >
               <h2 id="remove-attachment-heading">
                 Remove attachment
@@ -567,6 +626,7 @@
               </label>
 
               <textarea
+                ref={removalReasonRef}
                 id="removal-reason"
                 value={removalReason}
                 onChange={(event) =>
@@ -586,10 +646,7 @@
                   type="button"
                   className="btn zg-button zg-button--secondary"
                   disabled={isRemoving}
-                  onClick={() => {
-                    setRemovingAttachment(null);
-                    setRemovalReason("");
-                  }}
+                  onClick={closeRemovalDialog}
                 >
                   Cancel
                 </button>
