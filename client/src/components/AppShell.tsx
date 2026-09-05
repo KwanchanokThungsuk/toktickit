@@ -69,8 +69,11 @@ export default function AppShell({
               type="button"
               className="app-header__action"
               onClick={onChangeRequester}
+              title="Change Requester"
             >
-              Change Requester
+              <span className="app-header__action-label">
+                Change Requester
+              </span>
             </button>
           </div>
         </div>

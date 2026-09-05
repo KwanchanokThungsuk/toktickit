@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import multer from "multer";
 import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { getPrisma } from "./prisma.js";
+import { internalServerError } from "./internal-error.js";
 import ticketGetRouter from "./routes/tickets.get.js";
 import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
 import ticketPostRouter from "./routes/tickets.post.js";
@@ -107,14 +108,7 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
 
     res.status(200).json(categories);
   } catch (error) {
-    console.error("DATABASE ERROR:", error);
-
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-      },
-    });
+    return internalServerError(res, "DATABASE ERROR:", error);
   }
 });
 
@@ -137,14 +131,7 @@ app.get("/api/requesters", async (_req: Request, res: Response) => {
 
     res.status(200).json(requesters);
   } catch (error) {
-    console.error("DATABASE ERROR:", error);
-
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-      },
-    });
+    return internalServerError(res, "DATABASE ERROR:", error);
   }
 });
 
@@ -166,12 +153,7 @@ app.get("/api/related-systems", async (_req: Request, res: Response) => {
 
     res.status(200).json(relatedSystems);
   } catch (error) {
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to fetch related systems",
-      },
-    });
+    return internalServerError(res, "DATABASE ERROR:", error);
   }
 });
 
@@ -199,7 +181,7 @@ app.post("/api/tickets/:id/attachments", async (req: Request, res: Response) => 
       if (uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE") {
         return attachmentError(res, 413, "FILE_TOO_LARGE", "File exceeds 5 MB limit");
       }
-      if (uploadError) return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to upload attachment");
+      if (uploadError) return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", uploadError);
       if (!req.file) return attachmentError(res, 422, "VALIDATION_ERROR", "No file uploaded");
 
       const extension = attachmentExtensionMatches(req.file);
@@ -226,13 +208,11 @@ app.post("/api/tickets/:id/attachments", async (req: Request, res: Response) => 
         return res.status(201).json(attachment);
       } catch (error) {
         await unlink(storedPath).catch(() => undefined);
-        console.error("ATTACHMENT UPLOAD ERROR:", error);
-        return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to upload attachment");
+        return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", error);
       }
     });
   } catch (error) {
-    console.error("ATTACHMENT UPLOAD ERROR:", error);
-    return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to upload attachment");
+    return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", error);
   }
 });
 
@@ -254,8 +234,7 @@ app.get("/api/tickets/:id/attachments", async (req: Request, res: Response) => {
     });
     return res.status(200).json(attachments);
   } catch (error) {
-    console.error("ATTACHMENT LIST ERROR:", error);
-    return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to load attachments");
+    return internalServerError(res, "ATTACHMENT LIST ERROR:", error);
   }
 });
 
@@ -275,13 +254,12 @@ app.get("/api/attachments/:id/download", async (req: Request, res: Response) => 
     try {
       await stat(storedPath);
     } catch {
-      return attachmentError(res, 500, "INTERNAL_ERROR", "Attachment file is unavailable");
+      return internalServerError(res, "ATTACHMENT DOWNLOAD ERROR:", "Attachment file is unavailable");
     }
     res.type(attachment.contentType);
     return res.download(storedPath, attachment.originalFilename);
   } catch (error) {
-    console.error("ATTACHMENT DOWNLOAD ERROR:", error);
-    return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to download attachment");
+    return internalServerError(res, "ATTACHMENT DOWNLOAD ERROR:", error);
   }
 });
 
@@ -317,9 +295,13 @@ app.patch("/api/attachments/:id/remove", async (req: Request, res: Response) => 
     });
     return res.status(200).json(removed);
   } catch (error) {
-    console.error("ATTACHMENT REMOVE ERROR:", error);
-    return attachmentError(res, 500, "INTERNAL_ERROR", "Unable to remove attachment");
+    return internalServerError(res, "ATTACHMENT REMOVE ERROR:", error);
   }
 });
+
+app.use(
+  (error: unknown, _req: Request, res: Response, _next: NextFunction) =>
+    internalServerError(res, "UNHANDLED SERVER ERROR:", error),
+);
 
 export default app;

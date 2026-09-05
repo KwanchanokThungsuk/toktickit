@@ -160,7 +160,15 @@ export interface AttachmentMetadata {
   removedReason: string | null;
 }
 
-function attachmentErrorMessage(body: unknown, fallback: string) {
+function attachmentErrorMessage(
+  body: unknown,
+  fallback: string,
+  status: number,
+) {
+  if (status >= 500) {
+    return fallback;
+  }
+
   if (typeof body === "object" && body && "error" in body) {
     const error = (body as { error?: { message?: unknown } }).error;
     if (typeof error?.message === "string") return error.message;
@@ -189,7 +197,7 @@ export async function uploadAttachment(ticketId: number, file: File, requesterId
     } catch {
       // Use the safe fallback below when the body is not JSON.
     }
-    throw new Error(attachmentErrorMessage(body, `Failed to upload attachment: ${file.name}`));
+    throw new Error(attachmentErrorMessage(body, `Failed to upload attachment: ${file.name}`, response.status));
   }
 
   return response.json() as Promise<AttachmentMetadata>;
@@ -212,7 +220,7 @@ export async function removeAttachment(attachmentId: number, removedReason: stri
   if (!response.ok) {
     let body: unknown;
     try { body = await response.json(); } catch { /* safe fallback below */ }
-    throw new Error(attachmentErrorMessage(body, "Unable to remove attachment"));
+    throw new Error(attachmentErrorMessage(body, "Unable to remove attachment", response.status));
   }
   return response.json() as Promise<AttachmentMetadata>;
 }
@@ -224,7 +232,7 @@ export async function downloadAttachment(attachmentId: number, requesterId: numb
   if (!response.ok) {
     let body: unknown;
     try { body = await response.json(); } catch { /* safe fallback below */ }
-    throw new Error(attachmentErrorMessage(body, "Unable to download attachment"));
+    throw new Error(attachmentErrorMessage(body, "Unable to download attachment", response.status));
   }
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? "attachment";

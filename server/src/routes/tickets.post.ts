@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getPrisma } from "../prisma.js";
+import { internalServerError } from "../internal-error.js";
 import { generateTicketNumber } from "../utils/ticketNumber.js";
 
 const router = Router();
@@ -171,14 +172,7 @@ router.post("/api/tickets", async (req: Request, res: Response): Promise<any> =>
     // 12. Return created ticket
     return res.status(201).json(newTicket);
   } catch (error) {
-    console.error("POST /api/tickets ERROR:", error);
-
-    return res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-      },
-    });
+    return internalServerError(res, "POST /api/tickets ERROR:", error);
   }
 });
 
