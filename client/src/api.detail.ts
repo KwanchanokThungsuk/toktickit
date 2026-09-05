@@ -2,12 +2,14 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 export interface TicketDetailAttachment {
   id: number;
+  ticketId?: number;
   originalFilename: string;
   contentType: string;
   fileSize: number;
   uploadedAt: string;
   isRemoved: boolean;
   removedAt: string | null;
+  removedById?: number | null;
   removedReason: string | null;
 }
 

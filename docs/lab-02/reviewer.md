@@ -46,6 +46,18 @@ How I responded: Merged.
 - Reviewer comment I received: Everything looks good. The main requirements for search, filters, sorting, pagination, requester switching, and the different UI states are covered.
 - How I responded: merge.
 
+**feature/12-my-tickets-ui**
+- Reviewer comment I received:Everything looks good. The main requirements for search, filters, sorting, pagination, requester switching, and the different UI states are covered.
+- How I responded: merge.
+
+**feature/13-ticket-detail**
+- Reviewer comment I received: The ticket detail logic looks good and the ownership / 403 / 404 cases are covered, but this PR adds several .js and .jsx files even though the Lab 2 project is using TypeScript (.ts / .tsx). For example, RequesterTicketDetail.jsx and tickets.detail.get.js also import .ts files directly. Please change these new files to the TypeScript format used by the rest of the project before merging.
+- How I responded: fixed
+
+**feature/14-attachment-lifecycle**
+- Reviewer comment The attachment lifecycle looks good overall, but I found one thing that doesn't match the Lab 2 contract. BR-24 says the 5 MB attachment size limit must be enforced on both the client and server. The server validates it correctly, but adding an attachment from Ticket Detail currently sends the file directly to the API without checking file.size on the client first. Please add client-side attachment validation before uploading.
+- How I responded: fixed
+
 ## Pull Requests I reviewed for my partner
 **feature/5-specification-docs**
 - My comment: Great work getting the engineering contract together. The ACs, test plans, and API routes all match the Lab 2 requirements perfectly.
@@ -79,3 +91,10 @@ How I responded: Merged.
                 - It may be worth adding test coverage for changing page size (10/20/50), responsive behavior on mobile/tablet, and sorting when multiple tickets have the same primary sort value.
 - Partner's response: fixed
 
+**feature/10-ticket-detail-attachments**
+- My comment: Tested the PR locally. All 56 tests passed, and the Ticket Detail and Attachment lifecycle flows are working as expected. The only issue I found is that View Ticket still shows “Ticket Detail is outside Issue 4” instead of navigating to the Ticket Detail page. Please update this flow; everything else looks good.
+- Partner's response: fixed, Merged.
+
+**feature/11-e2e-visual-qa**
+- My comment: Tested locally. All server/client tests and builds passed, and Playwright E2E passed 9/9 across desktop, tablet, and mobile. Responsive and visual QA also look good. AC-01 to AC-26 are covered. Everything looks good to me.
+- Partner's response: Merged.

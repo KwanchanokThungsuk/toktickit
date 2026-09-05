@@ -1,11 +1,15 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRequester } from "./RequesterContext";
-import { Category, fetchCategories, fetchRelatedSystems, RelatedSystem } from "../api";
+import { Category, fetchCategories, fetchRelatedSystems, RelatedSystem, uploadAttachment } from "../api";
 
 type LoadState = "loading" | "ready" | "error";
 type FormField = "category" | "relatedSystem" | "priority" | "summary" | "description";
 type FormValues = Record<FormField, string>;
 type ValidationErrors = Partial<Record<FormField, string>>;
+interface FailedUpload {
+  file: File;
+  reason: string;
+}
 
 const initialFormValues: FormValues = {
   category: "",
@@ -47,6 +51,8 @@ export default function CreateTicket() {
   const [submitError, setSubmitError] = useState("");
   const [successTicketNumber, setSuccessTicketNumber] = useState("");
   const [createdTicketId, setCreatedTicketId] = useState<number | null>(null);
+  const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
+  const [retryingFileName, setRetryingFileName] = useState("");
   const firstInvalidField = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
 
   async function loadReferenceData() {
@@ -186,32 +192,37 @@ export default function CreateTicket() {
       const ticket = await response.json();
       setSuccessTicketNumber(ticket.ticketNumber);
       setCreatedTicketId(ticket.id);
+      setFailedUploads([]);
 
-      // เพิ่มโค้ดส่วนนี้เพื่ออัปโหลดไฟล์แนบจริงทั้งหมดไปยัง Backend
       if (selectedFiles.length > 0) {
+        const failures: FailedUpload[] = [];
         for (const file of selectedFiles) {
-          const formData = new FormData();
-          formData.append("file", file); // ชื่อฟิลด์อาจปรับตามที่ Backend กำหนด (เช่น "attachment" หรือ "file")
-
-          const uploadResponse = await fetch(`${apiUrl}/api/tickets/${ticket.id}/attachments`, {
-            method: "POST",
-            headers: {
-              "X-Requester-Id": String(selectedRequester.id),
-              // หมายเหตุ: ห้ามใส่ "Content-Type": "application/json" เมื่อใช้ FormData 
-              // เพราะ Browser จะใส่ Content-Type: multipart/form-data พร้อม boundary ให้เองอัตโนมัติ
-            },
-            body: formData,
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload attachment: ${file.name}`);
+          try {
+            await uploadAttachment(ticket.id, file, selectedRequester.id);
+          } catch (reason) {
+            failures.push({ file, reason: reason instanceof Error ? reason.message : "Unable to upload attachment" });
           }
         }
+        setFailedUploads(failures);
       }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to create ticket. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function retryUpload(failedUpload: FailedUpload) {
+    if (!createdTicketId || !selectedRequester) return;
+    setRetryingFileName(failedUpload.file.name);
+    try {
+      await uploadAttachment(createdTicketId, failedUpload.file, selectedRequester.id);
+      setFailedUploads((current) => current.filter((item) => item.file !== failedUpload.file));
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Unable to upload attachment";
+      setFailedUploads((current) => current.map((item) => item.file === failedUpload.file ? { ...item, reason: message } : item));
+    } finally {
+      setRetryingFileName("");
     }
   }
 
@@ -223,6 +234,7 @@ export default function CreateTicket() {
     setSubmitError("");
     setSuccessTicketNumber("");
     setCreatedTicketId(null);
+    setFailedUploads([]);
   }
 
   function inputStyle(field: FormField) {
@@ -264,6 +276,7 @@ export default function CreateTicket() {
           <h1 id="ticket-created-heading" className="h3">Ticket created</h1>
           <p style={{ color: "var(--zg-text-muted)" }}>Your support request has been submitted.</p>
           <p className="fs-4 fw-semibold">{successTicketNumber}</p>
+          {failedUploads.length > 0 ? <section className="alert text-start" role="alert" style={{ backgroundColor: "var(--zg-warning-bg)", borderColor: "var(--zg-warning)" }} aria-labelledby="failed-uploads-heading"><h2 id="failed-uploads-heading" className="h5">Some attachments could not be uploaded</h2><ul className="mb-0">{failedUploads.map((failedUpload) => <li key={failedUpload.file.name}><strong>{failedUpload.file.name}</strong>: {failedUpload.reason} <button type="button" className="btn btn-link p-0 ms-2" disabled={retryingFileName === failedUpload.file.name} onClick={() => void retryUpload(failedUpload)}>{retryingFileName === failedUpload.file.name ? "Retrying…" : "Retry"}</button></li>)}</ul></section> : null}
           <div className="d-flex justify-content-center gap-2 flex-wrap">
             <button 
               type="button" 
