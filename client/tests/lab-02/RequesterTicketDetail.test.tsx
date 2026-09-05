@@ -6,6 +6,7 @@ import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 import {
   downloadAttachment,
   removeAttachment,
+  uploadAttachment,
 } from "../../src/api";
 
 vi.mock("../../src/components/RequesterContext", () => ({
@@ -138,48 +139,48 @@ describe("RequesterTicketDetail", () => {
   });
 
   it("previews an active attachment in a new tab", async () => {
-  const previewWindow = {
-    close: vi.fn(),
-    location: {
-      href: "",
-    },
-  };
+    const previewWindow = {
+      close: vi.fn(),
+      location: {
+        href: "",
+      },
+    };
 
-  vi.spyOn(window, "open").mockReturnValue(
-    previewWindow as unknown as Window,
-  );
+    vi.spyOn(window, "open").mockReturnValue(
+      previewWindow as unknown as Window,
+    );
 
-  const createObjectURL = vi.fn(() => "blob:preview");
+    const createObjectURL = vi.fn(() => "blob:preview");
 
-  vi.stubGlobal("URL", {
-    createObjectURL,
-    revokeObjectURL: vi.fn(),
+    vi.stubGlobal("URL", {
+      createObjectURL,
+      revokeObjectURL: vi.fn(),
+    });
+
+    render(<RequesterTicketDetail ticketId={42} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Preview report.pdf",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(downloadAttachment).toHaveBeenCalledWith(
+        7,
+        requester.id,
+      ),
+    );
+
+    expect(window.open).toHaveBeenCalledWith(
+      "",
+      "_blank",
+    );
+
+    expect(previewWindow.location.href).toBe(
+      "blob:preview",
+    );
   });
-
-  render(<RequesterTicketDetail ticketId={42} />);
-
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Preview report.pdf",
-    }),
-  );
-
-  await waitFor(() =>
-    expect(downloadAttachment).toHaveBeenCalledWith(
-      7,
-      requester.id,
-    ),
-  );
-
-  expect(window.open).toHaveBeenCalledWith(
-    "",
-    "_blank",
-  );
-
-  expect(previewWindow.location.href).toBe(
-    "blob:preview",
-  );
-});
 
   it("shows preview errors safely", async () => {
     vi.mocked(downloadAttachment).mockRejectedValue(
@@ -342,5 +343,47 @@ describe("RequesterTicketDetail", () => {
         name: "Remove",
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("rejects an attachment larger than 5 MB before uploading", async () => {
+    const { container } = render(
+      <RequesterTicketDetail ticketId={42} />,
+    );
+
+    await screen.findByRole("heading", {
+      name: "Ticket Details",
+    });
+
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+
+    expect(input).toBeTruthy();
+
+    const oversizedFile = new File(
+      ["x"],
+      "large.png",
+      {
+        type: "image/png",
+      },
+    );
+
+    Object.defineProperty(oversizedFile, "size", {
+      value: 5 * 1024 * 1024 + 1,
+    });
+
+    fireEvent.change(input, {
+      target: {
+        files: [oversizedFile],
+      },
+    });
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent(
+      "large.png exceeds the 5 MB attachment size limit.",
+    );
+
+    expect(uploadAttachment).not.toHaveBeenCalled();
   });
 });
