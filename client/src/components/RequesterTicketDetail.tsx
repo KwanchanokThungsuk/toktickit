@@ -3,29 +3,34 @@ import { useRequester } from "./RequesterContext";
 import Badge from "./Badge";
 import ErrorState from "./ErrorState";
 import Loading from "./Loading";
-import { fetchTicket } from "../api.detail.js";
+import { fetchTicket, type TicketDetail } from "../api.detail";
+import type { BadgeVariant } from "./Badge";
 
-function formatDate(value) {
+interface RequesterTicketDetailProps {
+  ticketId: number;
+}
+
+function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
-function formatFileSize(bytes) {
+function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function priorityVariant(priority) {
+function priorityVariant(priority: TicketDetail["requestedPriority"]): BadgeVariant {
   if (priority === "HIGH") return "danger";
   if (priority === "MEDIUM") return "warning";
   return "neutral";
 }
 
-export default function RequesterTicketDetail({ ticketId }) {
+export default function RequesterTicketDetail({ ticketId }: RequesterTicketDetailProps) {
   const { selectedRequester } = useRequester();
-  const [ticket, setTicket] = useState(null);
+  const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 

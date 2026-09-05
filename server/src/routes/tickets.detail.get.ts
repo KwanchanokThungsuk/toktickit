@@ -1,9 +1,9 @@
-import { Router } from "express";
-import { getPrisma } from "../prisma.ts";
+import { Router, type Request, type Response } from "express";
+import { getPrisma } from "../prisma.js";
 
 const router = Router();
 
-router.get("/api/tickets/:id", async (req, res) => {
+router.get("/api/tickets/:id", async (req: Request, res: Response) => {
   try {
     const requesterIdHeader = req.header("X-Requester-Id");
     if (!requesterIdHeader || !/^\d+$/.test(requesterIdHeader)) {

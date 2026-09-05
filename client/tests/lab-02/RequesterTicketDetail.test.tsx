@@ -1,14 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import RequesterTicketDetail from "../../src/components/RequesterTicketDetail.jsx";
+import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
 import { useRequester } from "../../src/components/RequesterContext";
-import { fetchTicket } from "../../src/api.detail.js";
+import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 
 vi.mock("../../src/components/RequesterContext", () => ({ useRequester: vi.fn() }));
-vi.mock("../../src/api.detail.js", () => ({ fetchTicket: vi.fn() }));
+vi.mock("../../src/api.detail", () => ({ fetchTicket: vi.fn() }));
 
 const requester = { id: 3, name: "David Lee", email: "david@example.com" };
-const ticket = {
+const ticket: TicketDetail = {
   id: 42,
   ticketNumber: "TKT-2026-000042",
   requester,
@@ -19,13 +19,16 @@ const ticket = {
   requestedPriority: "HIGH",
   currentStatus: "NEW",
   createdAt: "2026-08-31T09:14:00.000Z",
-  updatedAt: "2026-08-31T09:14:00.000Z",
-  attachments: [{ id: 7, originalFilename: "report.pdf", contentType: "application/pdf", fileSize: 1024, uploadedAt: "2026-08-31T09:15:00.000Z", isRemoved: false }],
+  attachments: [{ id: 7, originalFilename: "report.pdf", contentType: "application/pdf", fileSize: 1024, uploadedAt: "2026-08-31T09:15:00.000Z", isRemoved: false, removedAt: null, removedReason: null }],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useRequester).mockReturnValue({ selectedRequester: requester });
+  vi.mocked(useRequester).mockReturnValue({
+    selectedRequester: requester,
+    setSelectedRequester: vi.fn(),
+    clearSelectedRequester: vi.fn(),
+  });
   vi.mocked(fetchTicket).mockResolvedValue(ticket);
 });
 

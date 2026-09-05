@@ -1,13 +1,22 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { app } from "../../src/app.ts";
-import { getPrisma } from "../../src/prisma.ts";
+import { app } from "../../src/app.js";
+import { getPrisma } from "../../src/prisma.js";
+
+interface TestRequester {
+  id: number;
+}
+
+interface TestTicket {
+  id: number;
+  ticketNumber: string;
+}
 
 describe("Requester Ticket Detail API", () => {
   const prisma = getPrisma();
-  let requesterA;
-  let requesterB;
-  let ticket;
+  let requesterA: TestRequester;
+  let requesterB: TestRequester;
+  let ticket: TestTicket;
 
   beforeEach(async () => {
     await prisma.attachment.deleteMany({});

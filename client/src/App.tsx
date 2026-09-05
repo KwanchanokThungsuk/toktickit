@@ -4,7 +4,7 @@ import RequesterSelection from "./components/RequesterSelection";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
 import MyTickets from "./components/MyTickets";
-import RequesterTicketDetail from "./components/RequesterTicketDetail.jsx";
+import RequesterTicketDetail from "./components/RequesterTicketDetail";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
 
