@@ -147,7 +147,28 @@ export async function createTicket(payload: CreateTicketPayload, requesterId: nu
 }
 
 // เพิ่มฟังก์ชันนี้เข้าไปใน client/src/api.ts
-export async function uploadAttachment(ticketId: number, file: File, requesterId: number): Promise<any> {
+export interface AttachmentMetadata {
+  id: number;
+  ticketId: number;
+  originalFilename: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+  isRemoved: boolean;
+  removedAt: string | null;
+  removedById: number | null;
+  removedReason: string | null;
+}
+
+function attachmentErrorMessage(body: unknown, fallback: string) {
+  if (typeof body === "object" && body && "error" in body) {
+    const error = (body as { error?: { message?: unknown } }).error;
+    if (typeof error?.message === "string") return error.message;
+  }
+  return fallback;
+}
+
+export async function uploadAttachment(ticketId: number, file: File, requesterId: number): Promise<AttachmentMetadata> {
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
   const formData = new FormData();
   formData.append("file", file); 
@@ -162,15 +183,50 @@ export async function uploadAttachment(ticketId: number, file: File, requesterId
   });
 
   if (!response.ok) {
-    let message = `Failed to upload attachment: ${file.name}`;
+    let body: unknown;
     try {
-      const errorBody = await response.json();
-      if (errorBody?.message) message = errorBody.message;
+      body = await response.json();
     } catch {
-      // ใช้ fallback message เดิม
+      // Use the safe fallback below when the body is not JSON.
     }
-    throw new Error(message);
+    throw new Error(attachmentErrorMessage(body, `Failed to upload attachment: ${file.name}`));
   }
 
-  return response.json();
+  return response.json() as Promise<AttachmentMetadata>;
+}
+
+export async function fetchAttachments(ticketId: number, requesterId: number): Promise<AttachmentMetadata[]> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
+    headers: { "X-Requester-Id": String(requesterId) },
+  });
+  if (!response.ok) throw new Error("Unable to load attachments");
+  return response.json() as Promise<AttachmentMetadata[]>;
+}
+
+export async function removeAttachment(attachmentId: number, removedReason: string, requesterId: number): Promise<AttachmentMetadata> {
+  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/remove`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Requester-Id": String(requesterId) },
+    body: JSON.stringify({ removedReason }),
+  });
+  if (!response.ok) {
+    let body: unknown;
+    try { body = await response.json(); } catch { /* safe fallback below */ }
+    throw new Error(attachmentErrorMessage(body, "Unable to remove attachment"));
+  }
+  return response.json() as Promise<AttachmentMetadata>;
+}
+
+export async function downloadAttachment(attachmentId: number, requesterId: number): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/download`, {
+    headers: { "X-Requester-Id": String(requesterId) },
+  });
+  if (!response.ok) {
+    let body: unknown;
+    try { body = await response.json(); } catch { /* safe fallback below */ }
+    throw new Error(attachmentErrorMessage(body, "Unable to download attachment"));
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? "attachment";
+  return { blob: await response.blob(), filename };
 }

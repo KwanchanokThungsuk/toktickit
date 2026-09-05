@@ -2,12 +2,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CreateTicket from "../../src/components/CreateTicket";
 import { RequesterProvider } from "../../src/components/RequesterContext";
+import { uploadAttachment } from "../../src/api";
 
 // Mock API functions
 vi.mock("../../src/api", () => ({
   fetchCategories: vi.fn().mockResolvedValue([{ id: 1, name: "Hardware" }]),
   fetchRelatedSystems: vi.fn().mockResolvedValue([{ id: 1, name: "Email System" }]),
   createTicket: vi.fn().mockResolvedValue({ ticketNumber: "TICK-999" }),
+  uploadAttachment: vi.fn(),
 }));
 
 const mockRequester = { id: 1, name: "Charlie Brown", email: "charlie@example.com" };
@@ -21,6 +23,7 @@ function renderWithContext(ui: React.ReactNode) {
 describe("CreateTicket Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(uploadAttachment).mockResolvedValue({ id: 1, ticketId: 101, originalFilename: "screenshot.png", contentType: "image/png", fileSize: 1, uploadedAt: "2026-01-01T00:00:00.000Z", isRemoved: false, removedAt: null, removedById: null, removedReason: null });
   });
 
   it("renders loading state initially and then loads reference data", async () => {
@@ -167,5 +170,33 @@ describe("CreateTicket Component", () => {
       expect(screen.getByText(/unable to create ticket/i)).toBeInTheDocument();
     });
     expect(summaryInput).toHaveValue("Important system bug found");
+  });
+
+  it("keeps the created ticket and retries an attachment that fails to upload", async () => {
+    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes("/api/categories")) return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
+      if (urlString.includes("/api/related-systems")) return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
+      if (urlString.endsWith("/api/tickets")) return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099", id: 101 }), { status: 201 });
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+    vi.mocked(uploadAttachment).mockRejectedValueOnce(new Error("File exceeds 5 MB limit"));
+
+    renderWithContext(<CreateTicket />);
+    await screen.findByRole("button", { name: /submit ticket/i });
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/related system/i), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: "Network connection is down in lab" } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: "Please help check the router configuration on the 3rd floor." } });
+    const file = new File(["image"], "screenshot.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/supporting files/i), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: /submit ticket/i }));
+
+    expect(await screen.findByText("TKT-2026-0099")).toBeInTheDocument();
+    expect(screen.getByText("screenshot.png")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("File exceeds 5 MB limit");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument());
   });
 });
