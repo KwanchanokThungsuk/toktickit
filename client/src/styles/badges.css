@@ -1,0 +1,38 @@
+.zg-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.zg-badge[data-variant="neutral"] {
+  background: var(--zg-pale);
+  color: var(--zg-secondary);
+  border-color: var(--zg-border);
+}
+
+.zg-badge[data-variant="success"] {
+  background: var(--zg-success-bg);
+  color: var(--zg-success);
+  border-color: rgba(11, 122, 70, 0.22);
+}
+
+.zg-badge[data-variant="warning"] {
+  background: var(--zg-warning-bg);
+  color: var(--zg-warning);
+  border-color: rgba(178, 106, 0, 0.2);
+}
+
+.zg-badge[data-variant="danger"] {
+  background: var(--zg-error-bg);
+  color: var(--zg-error);
+  border-color: rgba(164, 38, 44, 0.18);
+}

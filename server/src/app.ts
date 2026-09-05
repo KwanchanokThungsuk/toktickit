@@ -1,45 +1,307 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
-import { getPrisma } from "./prisma.js";
-// getPrisma() is your lazy database handle. Call it INSIDE a route when you
-// need the DB (Issue 4). It is intentionally unused until then.
-void getPrisma;
+import multer from "multer";
+import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 
-// The Express app is exported separately from app.listen() (see index.ts) so
-// Supertest can import `app` without opening a port. Do not merge these files.
+import { getPrisma } from "./prisma.js";
+import { internalServerError } from "./internal-error.js";
+import ticketGetRouter from "./routes/tickets.get.js";
+import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
+import ticketPostRouter from "./routes/tickets.post.js";
+
 export const app = express();
 
-app.use(cors());          // already wired: lets the Vite dev server call this API
+app.use(cors());
 app.use(express.json());
+
+app.use(ticketGetRouter);
+app.use(ticketDetailGetRouter);
+app.use(ticketPostRouter);
+
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+const MAX_ACTIVE_ATTACHMENTS = 5;
+const ATTACHMENT_STORAGE_DIR = path.resolve(process.cwd(), ".data", "attachments");
+const allowedAttachmentTypes: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+};
+
+// Keep uploads in memory until requester, ownership, count, size, and type checks pass.
+// This prevents rejected files from being persisted.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_ATTACHMENT_SIZE },
+});
+
+const attachmentMetadataSelect = {
+  id: true,
+  ticketId: true,
+  originalFilename: true,
+  contentType: true,
+  fileSize: true,
+  uploadedAt: true,
+  isRemoved: true,
+  removedAt: true,
+  removedById: true,
+  removedReason: true,
+} as const;
+
+function attachmentError(res: Response, status: number, code: string, message: string) {
+  return res.status(status).json({ error: { code, message } });
+}
+
+async function getRequesterId(req: Request, res: Response): Promise<number | null> {
+  const header = req.header("X-Requester-Id");
+  if (!header || !/^\d+$/.test(header)) {
+    attachmentError(res, 400, "REQUESTER_CONTEXT_MISSING", "Missing or invalid X-Requester-Id header");
+    return null;
+  }
+
+  const requesterId = Number(header);
+  const requester = await getPrisma().requesterUser.findFirst({
+    where: { id: requesterId, isActive: true },
+    select: { id: true },
+  });
+  if (!requester) {
+    attachmentError(res, 400, "REQUESTER_INVALID", "Requester is unknown or inactive");
+    return null;
+  }
+
+  return requesterId;
+}
+
+function attachmentExtensionMatches(file: Express.Multer.File) {
+  const extension = path.extname(file.originalname).toLowerCase();
+  return allowedAttachmentTypes[extension] === file.mimetype ? extension : null;
+}
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
-// Make the test in tests/lab-01/health.test.ts pass.
-// It must return HTTP 200 with JSON: { status: "ok", service: "TokTickIT API" }
 // ---------------------------------------------------------------------------
 app.get("/api/health", (_req: Request, res: Response) => {
-  // TODO(Issue 2): replace this stub with the required 200 response.
-  res.status(200).json({ status: "ok", service: "TokTickIT API" });
+  res.status(200).json({
+    status: "ok",
+    service: "TokTickIT API",
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Issue 4 — Category list
-// Add:  GET /api/categories
-//   -> read categories from PostgreSQL via getPrisma().category.findMany(...)
-//   -> return each { id, name } in a predictable (id) order
-//   -> on failure, respond 500 with a safe message (no internal details)
+// ---------------------------------------------------------------------------
 app.get("/api/categories", async (_req: Request, res: Response) => {
   try {
     const prisma = getPrisma();
+
     const categories = await prisma.category.findMany({
-      orderBy: { id: "asc" },
-      select: { id: true, name: true },
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+      },
     });
+
     res.status(200).json(categories);
   } catch (error) {
-    console.error("DATABASE ERROR:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return internalServerError(res, "DATABASE ERROR:", error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Issue 8 — Requester list
+// ---------------------------------------------------------------------------
+app.get("/api/requesters", async (_req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+
+    const requesters = await prisma.requesterUser.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    res.status(200).json(requesters);
+  } catch (error) {
+    return internalServerError(res, "DATABASE ERROR:", error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Related System list
+// ---------------------------------------------------------------------------
+app.get("/api/related-systems", async (_req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+
+    const relatedSystems = await prisma.relatedSystem.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    res.status(200).json(relatedSystems);
+  } catch (error) {
+    return internalServerError(res, "DATABASE ERROR:", error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Attachment lifecycle — Issue #14
+// ---------------------------------------------------------------------------
+app.post("/api/tickets/:id/attachments", async (req: Request, res: Response) => {
+  try {
+    const requesterId = await getRequesterId(req, res);
+    if (requesterId === null) return;
+
+    const ticketId = Number(req.params.id);
+    const prisma = getPrisma();
+    const ticket = Number.isInteger(ticketId) && ticketId > 0
+      ? await prisma.ticket.findFirst({ where: { id: ticketId, requesterId }, select: { id: true } })
+      : null;
+    if (!ticket) return attachmentError(res, 404, "NOT_FOUND", "Ticket not found");
+
+    const activeCount = await prisma.attachment.count({ where: { ticketId, isRemoved: false } });
+    if (activeCount >= MAX_ACTIVE_ATTACHMENTS) {
+      return attachmentError(res, 409, "ATTACHMENT_LIMIT_REACHED", "Maximum 5 active attachments allowed");
+    }
+
+    upload.single("file")(req, res, async (uploadError) => {
+      if (uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE") {
+        return attachmentError(res, 413, "FILE_TOO_LARGE", "File exceeds 5 MB limit");
+      }
+      if (uploadError) return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", uploadError);
+      if (!req.file) return attachmentError(res, 422, "VALIDATION_ERROR", "No file uploaded");
+
+      const extension = attachmentExtensionMatches(req.file);
+      if (!extension) {
+        return attachmentError(res, 400, "UNSUPPORTED_FILE_TYPE", "File extension and content type must be JPG, PNG, WEBP, or PDF and must match");
+      }
+
+      const storedFilename = `${randomUUID()}${extension}`;
+      const storedPath = path.join(ATTACHMENT_STORAGE_DIR, storedFilename);
+      try {
+        await mkdir(ATTACHMENT_STORAGE_DIR, { recursive: true });
+        await writeFile(storedPath, req.file.buffer);
+        const attachment = await prisma.attachment.create({
+          data: {
+            ticketId,
+            originalFilename: req.file.originalname,
+            storedFilename,
+            contentType: req.file.mimetype,
+            fileSize: req.file.size,
+            uploadedById: requesterId,
+          },
+          select: attachmentMetadataSelect,
+        });
+        return res.status(201).json(attachment);
+      } catch (error) {
+        await unlink(storedPath).catch(() => undefined);
+        return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", error);
+      }
+    });
+  } catch (error) {
+    return internalServerError(res, "ATTACHMENT UPLOAD ERROR:", error);
+  }
+});
+
+app.get("/api/tickets/:id/attachments", async (req: Request, res: Response) => {
+  try {
+    const requesterId = await getRequesterId(req, res);
+    if (requesterId === null) return;
+    const ticketId = Number(req.params.id);
+    const prisma = getPrisma();
+    const ticket = Number.isInteger(ticketId) && ticketId > 0
+      ? await prisma.ticket.findFirst({ where: { id: ticketId, requesterId }, select: { id: true } })
+      : null;
+    if (!ticket) return attachmentError(res, 404, "NOT_FOUND", "Ticket not found");
+
+    const attachments = await prisma.attachment.findMany({
+      where: { ticketId },
+      orderBy: { uploadedAt: "asc" },
+      select: attachmentMetadataSelect,
+    });
+    return res.status(200).json(attachments);
+  } catch (error) {
+    return internalServerError(res, "ATTACHMENT LIST ERROR:", error);
+  }
+});
+
+app.get("/api/attachments/:id/download", async (req: Request, res: Response) => {
+  try {
+    const requesterId = await getRequesterId(req, res);
+    if (requesterId === null) return;
+    const attachmentId = Number(req.params.id);
+    const attachment = Number.isInteger(attachmentId) && attachmentId > 0
+      ? await getPrisma().attachment.findFirst({
+        where: { id: attachmentId, isRemoved: false, ticket: { requesterId } },
+      })
+      : null;
+    if (!attachment) return attachmentError(res, 404, "NOT_FOUND", "Attachment not found");
+
+    const storedPath = path.join(ATTACHMENT_STORAGE_DIR, attachment.storedFilename);
+    try {
+      await stat(storedPath);
+    } catch {
+      return internalServerError(res, "ATTACHMENT DOWNLOAD ERROR:", "Attachment file is unavailable");
+    }
+    res.type(attachment.contentType);
+    return res.download(storedPath, attachment.originalFilename);
+  } catch (error) {
+    return internalServerError(res, "ATTACHMENT DOWNLOAD ERROR:", error);
+  }
+});
+
+app.patch("/api/attachments/:id/remove", async (req: Request, res: Response) => {
+  try {
+    const requesterId = await getRequesterId(req, res);
+    if (requesterId === null) return;
+    const attachmentId = Number(req.params.id);
+    const prisma = getPrisma();
+    const attachment = Number.isInteger(attachmentId) && attachmentId > 0
+      ? await prisma.attachment.findFirst({ where: { id: attachmentId, ticket: { requesterId } } })
+      : null;
+    if (!attachment) return attachmentError(res, 404, "NOT_FOUND", "Attachment not found");
+    if (attachment.isRemoved) {
+      return attachmentError(res, 409, "ATTACHMENT_ALREADY_REMOVED", "Attachment has already been removed");
+    }
+
+    const removedReason = typeof req.body?.removedReason === "string" ? req.body.removedReason.trim() : "";
+    if (removedReason.length < 5 || removedReason.length > 200) {
+      return res.status(422).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Removal reason must be between 5 and 200 characters.",
+          fields: { removedReason: "Removal reason must be between 5 and 200 characters." },
+        },
+      });
+    }
+
+    const removed = await prisma.attachment.update({
+      where: { id: attachment.id },
+      data: { isRemoved: true, removedAt: new Date(), removedById: requesterId, removedReason },
+      select: attachmentMetadataSelect,
+    });
+    return res.status(200).json(removed);
+  } catch (error) {
+    return internalServerError(res, "ATTACHMENT REMOVE ERROR:", error);
+  }
+});
+
+app.use(
+  (error: unknown, _req: Request, res: Response, _next: NextFunction) =>
+    internalServerError(res, "UNHANDLED SERVER ERROR:", error),
+);
 
 export default app;
