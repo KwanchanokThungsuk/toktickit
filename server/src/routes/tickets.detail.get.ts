@@ -54,8 +54,8 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
     }
 
     if (ticket.requesterId !== requesterId) {
-      return res.status(403).json({
-        error: { code: "FORBIDDEN", message: "You cannot access this ticket" },
+      return res.status(404).json({
+        error: { code: "NOT_FOUND", message: "That ticket could not be found." },
       });
     }
 

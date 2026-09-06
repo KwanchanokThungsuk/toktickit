@@ -1,4 +1,4 @@
-# Lab 1 — Peer Review Record  (fill this in)
+# Lab 2 — Peer Review Record  (fill this in)
 
 **Author:** Kwanchanok Thungsuk — 67070501006 — GitHub: @KwanchanokThungsuk
 **Peer reviewer:** Vera Intaratung — 67070501043 — GitHub: @Ttime52
