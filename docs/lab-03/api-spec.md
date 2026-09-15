@@ -20,7 +20,8 @@ The system has exactly one role per User:
 
 #### Assignment requirements
 
-Lab 3 uses an authenticated server-side session stored in a secure cookie.
+Lab 3 requires a secure authentication/session contract; the selected
+mechanism below stores session state on the server, not in the cookie.
 
 The server must validate protected requests, invalidate the session on
 logout, reject inactive users, and never expose passwords, hashes, or
@@ -28,16 +29,51 @@ session secrets.
 
 #### Project design choices
 
-The session cookie must use appropriate security attributes, including `HttpOnly`, `Secure` in HTTPS environments, and an appropriate `SameSite` policy.
+Authentication uses cookie-based server-side sessions. The browser receives
+only an opaque session identifier; session state and secrets remain on the
+server. The session cookie has `HttpOnly` enabled, `Secure` enabled in HTTPS
+environments, and `SameSite=Lax`.
 
-The session must have an expiration policy. Logout must invalidate the current session on the server.
+Sessions expire after **8 hours of inactivity**. A successful authenticated
+request refreshes the inactivity deadline; an expired session is rejected
+with `401` and cannot be revived. Logout invalidates the current session on
+the server and clears its cookie.
 
-The client must not receive or store password hashes or authentication secrets.
+Because authentication uses cookies, every state-changing request requires
+a CSRF token validated by the server before mutation. The token exchange
+and `X-CSRF-Token` header are defined below.
 
-The selected expiration, cookie attributes, and CSRF mechanism are
-implementation design choices. They must be documented consistently when
-the chosen cookie mechanism makes CSRF protection applicable; they do not
-create a separate Lab 3 feature.
+Password hashes and session secrets must never be returned to the client.
+Authentication secrets must not be committed to the repository. The 8-hour
+inactivity period and cookie/CSRF settings are project design decisions,
+not exact values mandated by the Lab 3 sheet. They bound idle access while
+supporting a normal working day; server-side storage permits logout
+invalidation.
+
+#### CSRF exchange
+
+`GET /api/auth/csrf` returns `200` with `{ "csrfToken": "opaque-token" }`
+and `Cache-Control: no-store`. Before login it establishes a
+pre-authentication session with the same cookie attributes and 8-hour
+inactivity expiration; it grants no
+authenticated access. After login it returns a token bound to the current
+server-side session. The CSRF token is intentionally client-readable and
+is not the session identifier, signing secret, or an authentication credential.
+
+The client sends `X-CSRF-Token` on every POST, PATCH, PUT, and DELETE,
+including login, logout, password changes, and Attachment mutations. The
+server rejects missing, invalid, or session-mismatched tokens with safe
+`403` (`CSRF_INVALID`) before changing state. Successful login replaces
+the pre-authentication session and rotates the token; the client fetches
+a fresh token before its next mutation. Logout/expiration invalidates both
+the session and its token. Requests with no valid authentication to protected
+endpoints return `401` before CSRF validation. CSRF retrieval, current-user,
+password change, and logout remain available during mandatory password change;
+all other protected operations return `403` (`PASSWORD_CHANGE_REQUIRED`).
+
+The server checks current account activation, role, and password-change
+state on every protected request. Deactivated accounts receive `401`;
+changed roles take effect immediately.
 
 ---
 
@@ -187,6 +223,11 @@ for invalid password input, or:
 for an invalid current password or unauthenticated request.
 
 Password hashes must never be returned to the client and passwords must never be stored in plaintext.
+Use scrypt with a unique random salt, N=32768, r=8, p=1, a 64-byte hash,
+and constant-time comparison, as specified in specification.md section 6.6.
+Initial, reset, and replacement passwords must contain 12–128 characters
+without trimming or composition requirements (count Unicode code points); replacements must differ
+from the current password. Confirmation is a UI check, not an API field.
 
 ---
 
@@ -329,7 +370,9 @@ Create a Ticket for the authenticated Requester.
 
 `REQUESTER`
 
-The requester/owner identity is taken from the authenticated session.
+The submitting Requester identity is taken from the authenticated session.
+The separate workflow Ticket Owner starts unassigned, and IT Priority
+initially copies Requested Priority.
 
 A client must not be able to create a Ticket owned by another Requester.
 
@@ -413,8 +456,13 @@ The response includes:
 - `totalPages`
 
 Invalid pagination, filter, or sort parameters must be rejected with a safe validation error.
-The implementation must document its allowed sort fields, default ordering,
-and page-size limits before implementation so they can be tested.
+Project decisions: `page` is an integer >= 1 (default 1); `pageSize` is
+an integer from 1 to 100 (default 20). `sortBy` is `ticketNumber`,
+`createdAt`, or `updatedAt` (default `updatedAt`); `sortOrder` is `asc` or
+`desc` (default `desc`). Break ties by Ticket ID ascending. Invalid values,
+including page sizes above 100, return `422`. A page beyond the last page
+returns empty `items` with unchanged totals. Search is case-insensitive.
+Status values follow section 6.4; IT Priority is `LOW`, `MEDIUM`, or `HIGH`.
 
 #### Success Response
 
@@ -495,7 +543,8 @@ To unassign where the UI/workflow permits:
 
 The selected owner must be an active `IT_STAFF` or `ADMINISTRATOR` user.
 An inactive user or Requester cannot become a Ticket Owner. Eligibility as
-owner does not grant an Administrator any Staff operation.
+owner does not grant an Administrator general Staff operations; IT Priority
+remains separately authorized under section 6.3.
 
 Success is `200 OK` and returns the updated Ticket owner summary. Invalid
 or ineligible owners return `422`; a missing Ticket returns `404`; an
@@ -518,7 +567,7 @@ Update IT Priority.
 }
 ```
 
-The allowed values must match the project's defined priority enum.
+Allowed values are `LOW`, `MEDIUM`, and `HIGH`, matching Lab 2 Requested Priority.
 
 `requestedPriority` is the value submitted by the Requester and must not be modified by this endpoint.
 
@@ -558,7 +607,9 @@ Update Ticket status through the approved transition matrix.
 - `REOPENED`
 - `CANCELLED`
 
-The implementation must define and enforce a clear transition matrix. Invalid transitions must be rejected with a safe error.
+Enforce the approved transition matrix in `specification.md` section 8.4.
+The UI confirms transitions to Resolved, Closed, or Cancelled. Invalid
+transitions must be rejected with a safe error.
 
 A Requester cannot directly set a Ticket to `RESOLVED` or `CLOSED`.
 
@@ -615,7 +666,8 @@ Create a Public Comment.
 
 #### Rules
 
-- `body` must not be blank or whitespace-only.
+- `body` must be a string, non-blank, and at most 2,000 characters.
+- Count Unicode code points before trimming; reject over-length input without truncation.
 - The server determines the author from the authenticated session.
 - The client cannot provide or override the author ID.
 - The server determines the creation timestamp.
@@ -630,8 +682,7 @@ Create a Public Comment.
 ```
 
 Blank/whitespace or over-length bodies return `422`; `401`, `403`, and
-`404` apply as appropriate. The maximum length is a project design choice
-that must be documented consistently before implementation.
+`404` apply as appropriate. The maximum is 2,000 characters for each body.
 
 ---
 
@@ -672,7 +723,8 @@ Create an Internal Note.
 
 #### Rules
 
-- `body` must not be blank or whitespace-only.
+- `body` must be a string, non-blank, and at most 2,000 characters.
+- Count Unicode code points before trimming; reject over-length input without truncation.
 - Notes are append-only.
 - The server determines the author and timestamp.
 - The client cannot spoof the author or timestamp.
@@ -686,8 +738,7 @@ Create an Internal Note.
 ```
 
 Blank/whitespace or over-length bodies return `422`; `401`, `403`, and
-`404` apply as appropriate. The maximum length is a project design choice
-that must be documented consistently before implementation.
+`404` apply as appropriate. The maximum is 2,000 characters for each body.
 
 ---
 
@@ -727,7 +778,7 @@ and it does not itself change formal Ticket status.
 
 The response returns the Ticket's persisted resolution-indication state
 and recorded time using the project's documented field names. `401`, `403`,
-and `404` apply for unauthenticated, non-Requester/unowned, and missing
+and `404` apply for unauthenticated, non-Requester, and missing/unowned
 Ticket requests; a repeated indication is handled idempotently or as a
 documented `409` business-rule conflict.
 
@@ -799,7 +850,8 @@ Create a user with exactly one permitted role.
   "name": "New User",
   "email": "newuser@example.com",
   "role": "REQUESTER",
-  "initialPassword": "InitialPassword123"
+  "initialPassword": "InitialPassword123",
+  "active": true
 }
 ```
 
@@ -808,7 +860,7 @@ Create a user with exactly one permitted role.
 - `role` must be exactly one of `REQUESTER`, `IT_STAFF`, or `ADMINISTRATOR`.
 - Email must be unique.
 - The email comparison must be case-insensitive after appropriate normalization.
-- The account is active by default unless the implementation explicitly specifies otherwise.
+- `active` is a boolean; it defaults to `true` and permits creating an inactive account.
 - `mustChangePassword` is set to `true` when an initial password is assigned.
 - The password is stored only as a secure password hash.
 - The API response must never contain the plaintext password or password hash.
@@ -850,7 +902,7 @@ Any permitted subset of:
 - Duplicate email addresses are rejected.
 - Users are deactivated instead of deleted.
 - An Administrator cannot deactivate their own account.
-- The last active Administrator cannot be deactivated.
+- The last active Administrator cannot be deactivated or have their role changed away from `ADMINISTRATOR`.
 - Non-Administrator users cannot modify User Management data.
 
 A business-rule conflict returns:
@@ -911,9 +963,12 @@ Protected endpoints must distinguish the following cases:
 
 Error responses must be safe and must not expose passwords, password hashes, session secrets, or protected data belonging to another user.
 
-For ownership-sensitive resources, the implementation should avoid revealing whether another user's protected Ticket, Attachment, or Internal Note exists when the caller is not authorized to access it.
+For ownership-sensitive resources, return the same safe `404` for missing
+and unowned Tickets/Attachments; check role restrictions before lookup so
+Requester Internal Note requests return `403` regardless of existence.
+Endpoint references to unowned-resource denial use this non-disclosure rule.
 
-A consistent error shape should be used, for example:
+Use the following consistent error shape:
 
 ```json
 {
@@ -945,9 +1000,10 @@ The API must:
 11. Store passwords only as secure password hashes.
 12. Never return password hashes or authentication secrets to the client.
 13. Prevent clients from spoofing comment/note authors or timestamps.
-14. Document safe cookie/session settings selected for the chosen deployment environment.
-15. Document and apply CSRF protection where the selected cookie-based
-    session mechanism makes it applicable.
+14. Use HttpOnly cookies, Secure in HTTPS, and SameSite=Lax; expire sessions
+    after 8 hours of inactivity.
+15. Validate the session-bound CSRF token on every state-changing request
+    as defined in section 1.2.
 16. Return safe error messages without leaking protected information.
 17. Never commit real credentials, session secrets, or personal passwords to the repository.
 
@@ -957,6 +1013,7 @@ The API must:
 
 | Endpoint | Requester | IT Staff | Administrator |
 |---|---|---|---|
+| GET `/api/auth/csrf` | Yes (also before login) | Yes | Yes |
 | POST `/api/auth/login` | Yes | Yes | Yes |
 | POST `/api/auth/logout` | Yes | Yes | Yes |
 | GET `/api/auth/me` | Yes | Yes | Yes |
@@ -1017,7 +1074,8 @@ The required statuses are:
 - `REOPENED`
 - `CANCELLED`
 
-The project must define the permitted transition matrix in `specification.md` and enforce it in the API.
+The approved transition matrix is in `specification.md` section 8.4 and
+must be enforced by the API. Only IT Staff may perform these transitions.
 
 Lab 3 does not include Actions Taken; any workflow rule depending on Actions Taken is deferred to Lab 4.
 
@@ -1037,7 +1095,11 @@ The backend supplies `authorId` and `createdAt`.
 
 Both content types are append-only in Lab 3. Editing and deletion are excluded.
 
-The project must define a justified maximum body length and enforce it consistently at the API and database-validation layers.
+Public Comment maximum: **2,000 characters**. Internal Note maximum: **2,000 characters**.
+2,000 characters is sufficient for normal service-desk communication while providing a bounded payload size and predictable UI/API validation.
+UI and backend validation count Unicode code points before trimming. The
+API/backend must reject longer bodies with `422` and persist no entry.
+The same rule applies to both types; no silent truncation is allowed.
 
 ---
 

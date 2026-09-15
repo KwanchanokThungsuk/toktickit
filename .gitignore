@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+.DS_Store
+docs/.DS_Store
+docs/lab-03/*.pdf

@@ -58,12 +58,31 @@ Navigation is determined by authenticated role.
 
 - User Management
 
+Administrator must not see Ticket Queue navigation; direct Queue access
+by Requester or Administrator displays Access denied.
+
 Unauthorized destinations must not be presented as normal navigation
 options.
 
 Frontend hiding is only UX behavior. Backend authorization remains
 mandatory.
 
+
+### 2.3 Session and Security Behavior
+
+Authentication uses cookie-based server-side sessions with `HttpOnly`
+enabled, `Secure` enabled in HTTPS environments, and `SameSite=Lax`.
+After 8 hours of inactivity the session expires; a protected API `401`
+clears displayed protected data and returns the user to Login. Logout
+invalidates the current session on the server and clears the cookie.
+These are project design decisions, including the 8-hour inactivity period.
+
+The client retrieves a CSRF token from `GET /api/auth/csrf` before login
+and again after login, and sends `X-CSRF-Token` on every state-changing
+request, including logout and attachments. The server validates the token.
+On `CSRF_INVALID`, show safe failure feedback and obtain a fresh token
+before the user retries. Password hashes and session secrets are never
+exposed to the client; authentication secrets are never committed.
 
 ## 3. Login Screen
 
@@ -107,8 +126,8 @@ Do not reveal whether an email exists in the system.
 
 #### Inactive Account
 
-Show a safe account-inactive message without unnecessary account
-information.
+Show the same safe authentication failure as invalid credentials; do not
+reveal account existence or activation state.
 
 ### Success
 
@@ -139,8 +158,9 @@ password.
 
 - required fields
 - password confirmation must match
-- password must satisfy the project-documented password rule, if one is
-  adopted as a design choice
+- initial, reset, and replacement passwords contain 12–128 characters
+  without trimming or composition requirements (count Unicode code points)
+- replacement password differs from the current password
 - current password must be valid
 
 ### States
@@ -224,13 +244,14 @@ Comments appear in chronological order.
 
 Administrators may view Public Comments read-only in an authorized
 communication-review context. This does not add Ticket Queue, claim,
-assignment, priority, status, or comment-creation controls for that role.
+assignment, status, or comment-creation controls for that role. The
+separately authorized IT Priority control remains available in that context.
 
 ### Input
 
 - multiline text input
 - submit button
-- character validation
+- character counter and visible 2,000-character maximum
 
 ### Validation
 
@@ -238,7 +259,11 @@ Reject:
 
 - empty input
 - whitespace-only input
-- content over the documented maximum
+- content over 2,000 characters (count Unicode code points before trimming)
+
+2,000 characters is sufficient for normal service-desk communication while providing a bounded payload size and predictable UI/API validation.
+Block submission above the limit, show inline validation, and handle the
+backend's `422` without clearing the draft. Do not silently truncate content.
 
 ### States
 
@@ -313,16 +338,13 @@ Search behavior follows the API contract.
 
 ### Filters
 
-Provide suitable filters such as:
-
-- Status
-- IT Priority
-- Ownership
-- Owner
+Provide Status and IT Priority filters. Ownership/Owner and other optional
+filters are shown and tested only if adopted consistently in api-spec.md.
 
 ### Sorting
 
-Sortable fields follow `api-spec.md`.
+Sortable fields are Ticket Number, Created Date, and Last Updated, following
+`api-spec.md`: default Last Updated descending, with Ticket ID ascending ties.
 
 The current sort should be visually indicated.
 
@@ -334,7 +356,7 @@ Provide:
 - current page
 - next/previous
 - page information
-- page-size control if implemented
+- page-size control if implemented (default 20; permitted sizes 1–100)
 
 ### Ownership
 
@@ -448,7 +470,8 @@ Claim should assign the Ticket to the authenticated IT Staff user.
 
 Reassign should allow selection of active eligible owners: IT Staff or
 Administrator. Selecting an Administrator as owner does not expose Staff
-Queue or Ticket mutation controls to that Administrator.
+Queue, claim/reassign, or status controls to that Administrator. IT Priority
+remains separately authorized in the communication-review context.
 
 
 ### 10.5 IT Priority
@@ -476,7 +499,8 @@ visually clear.
 
 Display current status.
 
-Provide only transitions allowed from the current status.
+Provide only transitions allowed by `specification.md` section 8.4.
+Require confirmation before Resolved, Closed, or Cancelled transitions.
 
 The backend remains responsible for validating the transition.
 
@@ -517,15 +541,20 @@ Each note shows:
 
 ### Input
 
-Multiline text input.
+Multiline text input with a character counter and visible 2,000-character maximum.
 
 ### Rules
 
 - append-only
 - empty content rejected
 - whitespace-only content rejected
+- maximum 2,000 characters, counted as Unicode code points before trimming
+- over-length submission blocked with inline validation; preserve the draft on `422`
+- no silent truncation
 - safe rendering
 - no edit/delete controls
+
+2,000 characters is sufficient for normal service-desk communication while providing a bounded payload size and predictable UI/API validation.
 
 Requesters must never see Internal Notes.
 
@@ -580,6 +609,7 @@ Optional role filter:
 - Email
 - Role
 - Initial Password
+- Active/Inactive state (default Active)
 
 Role selection allows exactly one role.
 
@@ -595,7 +625,7 @@ Role selection allows exactly one role.
 
 Show a clear success message.
 
-The new user is marked as requiring a password change when appropriate.
+Every new user is marked as requiring a password change at next login.
 
 
 ## 14. Edit User
@@ -645,9 +675,9 @@ If an Administrator attempts to deactivate themselves:
 
     You cannot deactivate your own account.
 
-If an Administrator attempts to deactivate the last active Administrator:
+If an Administrator attempts to deactivate or demote the last active Administrator:
 
-    The last active Administrator cannot be deactivated.
+    The last active Administrator cannot be deactivated or demoted.
 
 The UI must handle the backend response safely.
 
@@ -690,6 +720,16 @@ Non-Administrators must receive a safe forbidden state.
 
 Show safe error feedback without exposing backend details.
 
+
+### Shared Not-found and Conflict Feedback
+
+Missing accessible Tickets or users show a safe Not found message with a
+route back. A `409` shows the business-rule conflict and preserves editable
+input; stale Ticket state can be refreshed before retrying. All forms and
+detail screens handle safe API failures, validation, and saving feedback.
+
+Public Comments and Internal Notes have separate headings and clearly
+labeled composers; both render as text and expose no edit/delete controls.
 
 ## 18. Responsive Rules
 

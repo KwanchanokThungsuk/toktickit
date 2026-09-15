@@ -134,6 +134,20 @@ The following are outside the scope of Lab 3:
 - Multiple simultaneous user-list filters
 
 
+### 3.3 Functional Requirements
+
+| ID | Required behavior | Acceptance criteria / rules |
+|---|---|---|
+| FR-01 | Authenticate active users, retrieve current user, enforce first-login change, and log out using the session contract | AC-01–AC-06; section 6 |
+| FR-02 | Enforce exactly one role, role navigation, and backend ownership/authorization | AC-07–AC-11, AC-13, AC-34–AC-35 |
+| FR-03 | Preserve authenticated Requester Ticket and Attachment functions and migrate Development Requesters without data loss | AC-12–AC-15; BR-26 |
+| FR-04 | Provide IT Staff Queue search, filters, sorting, pagination, and Ticket Detail | AC-09, AC-16–AC-18 |
+| FR-05 | Permit eligible owner assignment, authorized IT Priority changes, and Staff status transitions | AC-19–AC-23; BR-11–BR-13, BR-24–BR-25 |
+| FR-06 | Provide append-only Public Comments and restricted Internal Notes with backend attribution and shared validation | AC-24–AC-27; BR-04, BR-14–BR-17 |
+| FR-07 | Persist Requester Problem Appears Resolved without changing formal status | BR-05; DETAIL-13/13a in tests.md |
+| FR-08 | Provide minimalist User Management and account safety protections | AC-10–AC-11, AC-28–AC-33 |
+| FR-09 | Provide responsive, accessible Zen Green screens and meaningful feedback | AC-34–AC-36; sections 16–17 |
+
 ## 4. User Roles
 
 ### 4.1 Requester
@@ -178,8 +192,7 @@ An IT Staff user may:
 - access permitted Ticket Attachments
 - log out
 
-IT Staff shall not manage user accounts unless explicitly permitted
-by the approved authorization matrix. Lab 3 keeps Ticket operations
+IT Staff shall not manage user accounts under the approved authorization matrix. Lab 3 keeps Ticket operations
 and User Management conceptually separate.
 
 
@@ -201,8 +214,8 @@ An Administrator may:
 - log out
 
 Administrator responsibilities are primarily limited to User Management.
-Administrator access to IT Staff Ticket operations is not enabled.
-Administrator communication access is read-only except for the explicit
+Administrator has no general IT Staff workflow permissions.
+Administrator communication access is read-only, with the separate explicit
 Lab 3 authorization to change IT Priority in an authorized Ticket context.
 It does not grant Ticket Queue, claim/reassign, or status-transition access.
 
@@ -279,19 +292,26 @@ be exposed to the client.
 
 ### Project design choices
 
-The opaque secure-cookie mechanism is a project design choice. The
-implementation must document its session expiration, cookie attributes,
-and CSRF approach where that mechanism makes CSRF protection applicable.
-Those choices do not add a separate Lab 3 feature.
+Authentication uses cookie-based server-side sessions. The browser receives
+only an opaque session identifier; session state and secrets remain on the
+server. The session cookie has `HttpOnly` enabled, `Secure` enabled in HTTPS
+environments, and `SameSite=Lax`.
 
-- session expiration
-- logout invalidation
-- cookie security attributes
-- CSRF protection where applicable
-- safe authentication errors
+Sessions expire after **8 hours of inactivity**. A successful authenticated
+request refreshes the inactivity deadline; an expired session is rejected
+with `401` and cannot be revived. Logout invalidates the current session on
+the server and clears its cookie.
 
-Authentication secrets shall never be exposed to client-side source code
-or committed to the repository.
+Because authentication uses cookies, every state-changing request requires
+a CSRF token validated by the server before mutation. The token exchange
+and `X-CSRF-Token` header are defined in `api-spec.md` section 1.2.
+
+Password hashes and session secrets must never be returned to the client.
+Authentication secrets must not be committed to the repository. The 8-hour
+inactivity period and cookie/CSRF settings are project design decisions,
+not exact values mandated by the Lab 3 sheet. They bound idle access while
+supporting a normal working day; server-side storage permits logout
+invalidation.
 
 ### 6.3 Current User
 
@@ -317,7 +337,7 @@ After logout:
 
 ### 6.5 First-login Password Change
 
-A newly created or reset user may be marked as requiring a password change.
+Every newly created or reset user must be marked as requiring a password change.
 A user with this state:
 1. may authenticate with the initial password;
 2. must be directed to the Change Password flow;
@@ -329,13 +349,15 @@ A user with this state:
 
 Passwords must never be stored in plaintext.
 The server shall store only a secure password hash.
-Password hashing and verification shall be implemented using an approved
-password-hashing library appropriate for the Node.js course stack.
+Project decision: use scrypt with a unique random salt per password and
+parameters N=32768, r=8, p=1, deriving a 64-byte hash. Store the salt and
+parameters with the hash, only on the server; use constant-time comparison.
 
 The assignment requires a valid replacement password but does not
-prescribe a particular composition rule. The project must choose and
-document one validation rule consistently in the API, UI, and tests; it
-is a design choice rather than an additional assignment requirement.
+prescribe a particular composition rule. The project rule is 12–128 characters, without trimming or composition
+requirements; count Unicode code points. A replacement must differ from the current password. Apply
+this rule to initial, reset, and replacement passwords in API, UI, and
+tests. This is a design choice rather than an assignment-mandated limit.
 
 
 ## 7. Business Rules
@@ -371,8 +393,9 @@ operations must be rejected.
 ### BR-07 Inactive User
 An inactive user cannot authenticate.
 If an existing authenticated account is deactivated, subsequent
-authenticated requests must follow the approved session invalidation
-behavior.
+authenticated requests must reject the session with `401`. The backend
+checks current activation, role, and password-change state on every
+protected request so account changes cannot leave stale permissions.
 
 ### BR-08 Unique Email
 Each User email address must be unique.
@@ -384,6 +407,7 @@ Each User has exactly one permitted role:
 - IT Staff
 - Administrator
 
+The API values are `REQUESTER`, `IT_STAFF`, and `ADMINISTRATOR`.
 Multiple roles are not supported.
 
 ### BR-10 Requester Ownership
@@ -416,8 +440,11 @@ Existing notes cannot be edited or deleted in Lab 3.
 
 ### BR-16 Comment/Note Validation
 Comment and Internal Note content must not be empty or whitespace-only.
-The implementation shall define a justified maximum content length and
-safe rendering behavior.
+Public Comments and Internal Notes each have a maximum of **2,000 characters**.
+2,000 characters is sufficient for normal service-desk communication while providing a bounded payload size and predictable UI/API validation.
+Count Unicode code points in the submitted body before trimming; reject
+over-length bodies without truncation. UI and backend use the same rule.
+Render content as text, never executable HTML or script.
 
 ### BR-17 Backend Timestamps
 Comment and Internal Note author and creation time are determined by the
@@ -435,8 +462,8 @@ already assigned to another User.
 An Administrator cannot deactivate their own account.
 
 ### BR-21 Last Active Administrator
-The system must prevent removal or deactivation of the last active
-Administrator account.
+The system must prevent removal, deactivation, or role demotion of the
+last active Administrator account, including concurrent updates.
 
 ### BR-22 User Deactivation
 Lab 3 uses account deactivation instead of user deletion.
@@ -494,7 +521,7 @@ Lab 3 supports the following Ticket statuses:
 - Reopened
 - Cancelled
 
-### 8.4 Proposed Status Transition Matrix
+### 8.4 Approved Status Transition Matrix
 The following matrix is the approved Lab 3 project decision.
 
 | Current Status | Allowed Next Status | Role |
@@ -519,6 +546,7 @@ The server shall reject:
 - invalid transitions
 - transitions performed by unauthorized roles
 
+The UI requires confirmation before Resolved, Closed, or Cancelled transitions.
 The UI shall only present permitted transitions, but the backend remains
 the final enforcement point.
 Actions Taken by IT Staff are not part of Lab 3 and shall not be used as
@@ -555,7 +583,7 @@ notes to change a Ticket workflow state.
 Both comment types:
 - reject empty content
 - reject whitespace-only content
-- enforce the documented maximum length
+- enforce a maximum of 2,000 characters for each Public Comment and Internal Note
 - render user content safely
 - do not interpret submitted content as executable HTML or script
 
@@ -623,9 +651,12 @@ Migration requirements:
 2. Existing Ticket ownership must remain correct.
 3. Existing Attachment relationships must remain valid.
 4. Existing Tickets must not be discarded.
-5. Existing Attachments must not be discarded.
-6. Initial passwords for migrated users must be defined through a safe
-   local-development process.
+5. Existing Attachments must not be discarded. Preserve Requested Priority;
+   initialize IT Priority from it and leave the new workflow owner unassigned.
+6. The local migration operator supplies per-user initial passwords through
+   untracked local input, hashes them using section 6.6, and sets
+   `mustChangePassword=true`. Credentials are shared locally outside the
+   repository; reruns preserve existing hashes and password-change state.
 7. The temporary Development Requester selector must be removed.
 8. Client-side state that previously controlled Requester identity must
    no longer determine ownership.
@@ -880,6 +911,8 @@ Meaningful screens must provide:
 - empty
 - no results
 - forbidden
+- not found
+- conflict
 - safe failure
 
 The application shall remain usable on:
@@ -937,9 +970,13 @@ when the Requester attempts to access an Internal Note,
 then the request is rejected.
 
 #### AC-09
-Given an IT Staff user or Administrator with an authorized Ticket context,
+Given an authenticated IT Staff user,
 when the user accesses the Ticket Queue,
 then the queue is available.
+
+Given an authenticated Requester or Administrator,
+when the user accesses the Ticket Queue,
+then access is denied.
 
 #### AC-10
 Given an Administrator,
@@ -956,7 +993,8 @@ then the request is rejected by the backend.
 #### AC-12
 Given an authenticated Requester,
 when the Requester creates a Ticket,
-then the Ticket owner is determined from the authenticated identity.
+then the submitting Requester is determined from the authenticated identity,
+IT Priority copies Requested Priority, and the workflow Ticket Owner is unassigned.
 
 #### AC-13
 Given an authenticated Requester,
@@ -1022,17 +1060,18 @@ then the server rejects the transition.
 ### Comments and Notes
 #### AC-24
 Given a permitted user,
-when the user submits a non-empty Public Comment,
+when the user submits a non-blank Public Comment of at most 2,000 characters,
 then the comment is appended with backend author and timestamp.
 
 #### AC-25
 Given a user,
-when the user submits an empty or whitespace-only comment,
+when the user submits an empty, whitespace-only, or over-2,000-character
+Public Comment or Internal Note,
 then the server rejects the request.
 
 #### AC-26
 Given an IT Staff user,
-when the user submits an Internal Note,
+when the user submits a non-blank Internal Note of at most 2,000 characters,
 then the note is stored and visible to permitted roles only.
 
 #### AC-27
@@ -1064,7 +1103,8 @@ then the operation is rejected.
 
 #### AC-32
 Given the last active Administrator,
-when an attempt is made to deactivate that account,
+when an attempt is made to deactivate that account or change its role away
+from Administrator,
 then the operation is rejected.
 
 #### AC-33
@@ -1184,6 +1224,9 @@ Lab 3 is complete only when all of the following are satisfied:
 - [ ] Inactive accounts are rejected
 - [ ] Passwords are never stored in plaintext
 - [ ] Authentication secrets are not committed
+- [ ] Server-side sessions expire after 8 hours of inactivity
+- [ ] HttpOnly, Secure in HTTPS, and SameSite=Lax cookie settings verified
+- [ ] Server validates CSRF tokens for every state-changing request
 
 ### Authorization
 - [ ] Backend role authorization implemented
@@ -1285,10 +1328,12 @@ remain consistent across database, API, UI, and tests:
 14. User deletion is not supported.
 15. User deactivation is used instead of deletion.
 16. An Administrator cannot deactivate their own account.
-17. The last active Administrator cannot be deactivated.
+17. The last active Administrator cannot be deactivated or demoted.
 18. A reset initial password requires a password change at next login.
 19. Existing Lab 2 Ticket and Attachment data must survive migration.
 20. Backend authorization is mandatory for every protected operation.
 21. The Development Requester selector is removed after migration.
 22. Lab 3 continues the Lab 2 Zen Green design system.
 23. Actions Taken by IT Staff are deferred to Lab 4.
+24. Session and CSRF behavior follows section 6.2.
+25. Public Comments and Internal Notes each have a 2,000-character maximum (BR-16).
