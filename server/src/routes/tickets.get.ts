@@ -1,23 +1,18 @@
 import { Router, Request, Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
+import { authenticatedUserId, requirePasswordChanged } from "../auth.js";
 
 const router = Router();
 
 router.get("/api/tickets", async (req: Request, res: Response): Promise<any> => {
   try {
-    const requesterIdHeader = req.header("X-Requester-Id");
-
-    if (!requesterIdHeader || !/^\d+$/.test(requesterIdHeader)) {
-      return res.status(400).json({
-        error: {
-          code: "REQUESTER_CONTEXT_MISSING",
-          message: "Missing or invalid X-Requester-Id header",
-        },
-      });
+    const authenticatedId = authenticatedUserId(req);
+    if (authenticatedId === null) {
+      return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
     }
-
-    const requesterId = Number(requesterIdHeader);
+    if (!requirePasswordChanged(req, res)) return;
+    const requesterId = authenticatedId;
 
     const allowedQueryParams = [
       "search",
@@ -166,7 +161,7 @@ router.get("/api/tickets", async (req: Request, res: Response): Promise<any> => 
 
     const prisma = getPrisma();
 
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await prisma.user.findUnique({
       where: {
         id: requesterId,
       },

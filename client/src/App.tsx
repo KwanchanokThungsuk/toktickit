@@ -1,53 +1,32 @@
 import { useEffect, useState } from "react";
-import { RequesterProvider, useRequester } from "./components/RequesterContext";
-import RequesterSelection from "./components/RequesterSelection";
+import { currentUser, logout, type AuthUser } from "./api";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
 import MyTickets from "./components/MyTickets";
 import RequesterTicketDetail from "./components/RequesterTicketDetail";
+import Login from "./components/Login";
+import ChangePassword from "./components/ChangePassword";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
 
-// Issue 8 — Inner component that uses the RequesterContext.
-// Conditionally renders RequesterSelection or AppShell based on selectedRequester.
-function AppContent() {
-  const { selectedRequester, clearSelectedRequester } = useRequester();
+export default function App() {
+  const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
   const [view, setView] = useState(() => window.location.hash || "#/tickets");
-
+  useEffect(() => { currentUser().then(setUser).catch(() => setUser(null)); }, []);
   useEffect(() => {
-    const handleHashChange = () => setView(window.location.hash || "#/tickets");
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    const onHashChange = () => setView(window.location.hash || "#/tickets");
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
-
-  // AC-02: If no requester is selected, show RequesterSelection instead of AppShell
-  if (!selectedRequester) {
-    return <RequesterSelection />;
-  }
-
+  if (user === undefined) return <p>Loading…</p>;
+  if (!user) return <Login onLogin={setUser} />;
+  if (user.mustChangePassword) return <ChangePassword user={user} onChanged={() => setUser({ ...user, mustChangePassword: false })} />;
   const showingCreateTicket = view === "#/tickets/new";
   const detailMatch = view.match(/^#\/tickets\/(\d+)$/);
-
-  return (
-    <AppShell
-      requesterName={selectedRequester.name}
-      onChangeRequester={clearSelectedRequester}
-      navItems={[
-        { label: "My Tickets", href: "#/tickets", current: !showingCreateTicket },
-        { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
-      ]}
-    >
-      {showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets key={selectedRequester.id} />}
-    </AppShell>
-  );
-}
-
-// Issue 8 — App component wraps everything in RequesterProvider.
-// The provider manages the selected requester state and localStorage persistence.
-export default function App() {
-  return (
-    <RequesterProvider>
-      <AppContent />
-    </RequesterProvider>
-  );
+  return <AppShell requesterName={user.name} onChangeRequester={async () => { await logout(); setUser(null); }} navItems={[
+    { label: "My Tickets", href: "#/tickets", current: !showingCreateTicket },
+    { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
+  ]}>
+    {showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets />}
+  </AppShell>;
 }

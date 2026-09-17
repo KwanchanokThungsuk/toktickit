@@ -9,7 +9,6 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import MyTickets from "../../src/components/MyTickets";
-import { useRequester } from "../../src/components/RequesterContext";
 import {
   fetchCategories,
   fetchRelatedSystems,
@@ -29,11 +28,6 @@ vi.mock("../../src/api", () => ({
   fetchTickets: vi.fn(),
 }));
 
-vi.mock("../../src/components/RequesterContext", () => ({
-  useRequester: vi.fn(),
-}));
-
-const mockedUseRequester = vi.mocked(useRequester);
 const mockedFetchCategories = vi.mocked(fetchCategories);
 const mockedFetchRelatedSystems = vi.mocked(fetchRelatedSystems);
 const mockedFetchTickets = vi.mocked(fetchTickets);
@@ -111,16 +105,7 @@ function createResponse(
   };
 }
 
-function setupRequester(requester = requesterA) {
-  mockedUseRequester.mockReturnValue({
-    selectedRequester: requester,
-    setSelectedRequester: vi.fn(),
-    clearSelectedRequester: vi.fn(),
-  });
-}
-
-function renderMyTickets(requester = requesterA) {
-  setupRequester(requester);
+function renderMyTickets() {
   return render(<MyTickets />);
 }
 
@@ -132,7 +117,6 @@ beforeEach(() => {
 
   mockedFetchTickets.mockResolvedValue(createResponse());
 
-  setupRequester();
 });
 
 describe("MyTickets", () => {
@@ -236,69 +220,6 @@ describe("MyTickets", () => {
     });
   });
 
-  describe("UI-14 / AC-23 - requester switching", () => {
-    it("removes Requester A tickets after switching to Requester B", async () => {
-      const ticketA = createTicket({
-        id: 1,
-        ticketNumber: "TKT-2026-000001",
-        summary: "Requester A ticket",
-      });
-
-      const ticketB = createTicket({
-        id: 2,
-        ticketNumber: "TKT-2026-000002",
-        summary: "Requester B ticket",
-      });
-
-      mockedFetchTickets.mockImplementation(async ({ requesterId }) => {
-        if (requesterId === requesterA.id) {
-            return createResponse([ticketA]);
-        }
-
-        if (requesterId === requesterB.id) {
-            return createResponse([ticketB]);
-        }
-
-        return createResponse([]);
-        });
-
-      const { rerender } = renderMyTickets(requesterA);
-
-      const table = await screen.findByRole("table");
-      await waitFor(() => {
-        expect(
-          within(table).getByText("Requester A ticket"),
-        ).toBeInTheDocument();
-      });
-
-      mockedUseRequester.mockReturnValue({
-        selectedRequester: requesterB,
-        setSelectedRequester: vi.fn(),
-        clearSelectedRequester: vi.fn(),
-      });
-
-      rerender(<MyTickets />);
-
-      const updatedTable = await screen.findByRole("table");
-
-        expect(
-        within(updatedTable).getByText("Requester B ticket"),
-        ).toBeInTheDocument();
-
-        expect(
-        within(updatedTable).queryByText("Requester A ticket"),
-        ).not.toBeInTheDocument();
-
-      expect(
-        mockedFetchTickets,
-      ).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          requesterId: requesterB.id,
-        }),
-      );
-    });
-  });
-
   describe("UI-15 / AC-24 - search", () => {
     it("resets pagination to page 1 when searching", async () => {
       const user = userEvent.setup();
@@ -351,7 +272,6 @@ describe("MyTickets", () => {
           mockedFetchTickets,
         ).toHaveBeenLastCalledWith(
           expect.objectContaining({
-            requesterId: requesterA.id,
             search: "VPN",
             page: 1,
           }),

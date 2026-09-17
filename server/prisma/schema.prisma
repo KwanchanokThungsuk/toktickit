@@ -21,12 +21,22 @@ enum TicketStatus {
   NEW
 }
 
-model RequesterUser {
+enum UserRole {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
+
+model User {
   id                  Int          @id @default(autoincrement())
   name                String
   email               String       @unique
+  passwordHash        String
+  role                UserRole
+  mustChangePassword  Boolean      @default(true)
   isActive            Boolean      @default(true)
-  createdAt           DateTime     @default(now())
+  createdAt            DateTime     @default(now())
+
   tickets             Ticket[]
   uploadedAttachments Attachment[] @relation("AttachmentUploader")
   removedAttachments  Attachment[] @relation("AttachmentRemover")
@@ -52,7 +62,7 @@ model Ticket {
   id                Int             @id @default(autoincrement())
   ticketNumber      String          @unique
   requesterId       Int
-  requester         RequesterUser   @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+  requester         User   @relation(fields: [requesterId], references: [id], onDelete: Restrict)
   categoryId        Int
   category          Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   relatedSystemId   Int
@@ -77,12 +87,12 @@ model Attachment {
   contentType      String
   fileSize         Int
   uploadedById     Int
-  uploadedBy       RequesterUser  @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  uploadedBy       User  @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
   uploadedAt       DateTime       @default(now())
   isRemoved        Boolean        @default(false)
   removedAt        DateTime?
   removedById      Int?
-  removedBy        RequesterUser? @relation("AttachmentRemover", fields: [removedById], references: [id], onDelete: Restrict)
+  removedBy        User? @relation("AttachmentRemover", fields: [removedById], references: [id], onDelete: Restrict)
   removedReason    String?
 
   @@index([ticketId, isRemoved])

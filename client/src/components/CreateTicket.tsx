@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useRequester } from "./RequesterContext";
 import { Category, fetchCategories, fetchRelatedSystems, RelatedSystem, uploadAttachment } from "../api";
 
 type LoadState = "loading" | "ready" | "error";
@@ -35,7 +34,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES = 5;
 
 export default function CreateTicket() {
-  const { selectedRequester } = useRequester();
   const [categories, setCategories] = useState<Category[]>([]);
   const [relatedSystems, setRelatedSystems] = useState<RelatedSystem[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -145,11 +143,6 @@ export default function CreateTicket() {
       return;
     }
 
-    if (!selectedRequester) {
-      setSubmitError("Select a requester before creating a ticket.");
-      return;
-    }
-
     setIsSubmitting(true);
     setSubmitError("");
 
@@ -159,7 +152,6 @@ export default function CreateTicket() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Requester-Id": String(selectedRequester.id),
         },
         body: JSON.stringify({
           categoryId: Number(formValues.category),
@@ -200,7 +192,7 @@ export default function CreateTicket() {
         const failures: FailedUpload[] = [];
         for (const file of selectedFiles) {
           try {
-            await uploadAttachment(ticket.id, file, selectedRequester.id);
+            await uploadAttachment(ticket.id, file);
           } catch (reason) {
             failures.push({ file, reason: reason instanceof Error ? reason.message : "Unable to upload attachment" });
           }
@@ -215,10 +207,10 @@ export default function CreateTicket() {
   }
 
   async function retryUpload(failedUpload: FailedUpload) {
-    if (!createdTicketId || !selectedRequester) return;
+    if (!createdTicketId) return;
     setRetryingFileName(failedUpload.file.name);
     try {
-      await uploadAttachment(createdTicketId, failedUpload.file, selectedRequester.id);
+      await uploadAttachment(createdTicketId, failedUpload.file);
       setFailedUploads((current) => current.filter((item) => item.file !== failedUpload.file));
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Unable to upload attachment";
@@ -328,7 +320,7 @@ export default function CreateTicket() {
             <div className="col-md-6 col-lg-4">
               <div className="rounded-2 p-3 h-100" style={readonlyStyle}>
                 <div className="form-label mb-1" style={{ color: "var(--zg-text-muted)" }}>Requester</div>
-                <div>{selectedRequester?.name || "Unknown"}</div>
+                <div>Authenticated requester</div>
               </div>
             </div>
           </div>

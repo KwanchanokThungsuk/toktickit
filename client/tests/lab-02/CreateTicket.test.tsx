@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CreateTicket from "../../src/components/CreateTicket";
-import { RequesterProvider } from "../../src/components/RequesterContext";
 import { uploadAttachment } from "../../src/api";
 
 // Mock API functions
@@ -12,13 +11,8 @@ vi.mock("../../src/api", () => ({
   uploadAttachment: vi.fn(),
 }));
 
-const mockRequester = { id: 1, name: "Charlie Brown", email: "charlie@example.com" };
-
 // Helper to wrap component with required context
-function renderWithContext(ui: React.ReactNode) {
-  vi.spyOn(Storage.prototype, "getItem").mockReturnValue(JSON.stringify(mockRequester));
-  return render(<RequesterProvider>{ui}</RequesterProvider>);
-}
+function renderWithContext(ui: React.ReactNode) { return render(ui); }
 
 describe("CreateTicket Component", () => {
   beforeEach(() => {
@@ -35,7 +29,7 @@ describe("CreateTicket Component", () => {
       expect(screen.getByRole("heading", { name: /create ticket/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Charlie Brown")).toBeInTheDocument();
+    expect(screen.getByText("Authenticated requester")).toBeInTheDocument();
   });
 
   it("shows validation errors when submitting empty required fields", async () => {

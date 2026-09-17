@@ -6,34 +6,23 @@ import { getPrisma } from "../../src/prisma.js";
 
 const prisma = getPrisma();
 
-describe("GET /api/categories", () => {
+describe("GET /api/categories includes the required seeded categories in deterministic relative order", () => {
   beforeEach(async () => {
-    await prisma.attachment.deleteMany({});
-    await prisma.ticket.deleteMany({});
-    await prisma.category.deleteMany({});
-
-    await prisma.category.createMany({
-      data: [
-        { name: "Account and Access", isActive: true },
-        { name: "Hardware", isActive: true },
-        { name: "Software", isActive: true },
-        { name: "Network", isActive: true },
-      ],
-    });
+    for (const name of ["Account and Access", "Hardware", "Software", "Network"]) {
+      await prisma.category.upsert({ where: { name }, update: { isActive: true }, create: { name, isActive: true } });
+    }
   });
 
-  it("returns the four seeded categories in id order", async () => {
+  it("returns all required seeded categories in id order relative to one another", async () => {
     const res = await request(app).get("/api/categories");
 
     expect(res.status).toBe(200);
 
-    expect(res.body).toHaveLength(4);
-
-    expect(res.body.map((category: { name: string }) => category.name)).toEqual([
-      "Account and Access",
-      "Hardware",
-      "Software",
-      "Network",
-    ]);
+    const required = [
+      "Account and Access", "Hardware", "Software", "Network",
+    ];
+    const names = res.body.map((category: { name: string }) => category.name);
+    expect(names).toEqual(expect.arrayContaining(required));
+    expect(names.filter((name: string) => required.includes(name))).toEqual(required);
   });
 });

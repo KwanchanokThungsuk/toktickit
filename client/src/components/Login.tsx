@@ -1,0 +1,4 @@
+import { useState } from "react";
+import { login, type AuthUser } from "../api";
+import PasswordInput from "./PasswordInput";
+export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }) { const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [error,setError]=useState(""); const [busy,setBusy]=useState(false); return <main className="auth-card"><h1>TokTickIT</h1><h2>Sign in</h2><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError("");try{onLogin(await login(email,password));}catch(err){setError(err instanceof Error?err.message:"Unable to sign in");}finally{setBusy(false);}}}><label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required /></label><label>Password<PasswordInput value={password} onChange={e=>setPassword(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button disabled={busy}>{busy?"Signing in…":"Sign in"}</button></form></main> }

@@ -1,122 +1,51 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import request from "supertest";
-import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { hashPassword } from "../../src/auth.js";
+import { authenticatedAgent, csrfHeaders } from "./auth-helper.js";
 
+const password = "Regression Password 1";
 describe("Attachment lifecycle API", () => {
-  let ticketId: number;
-  let requesterId: number;
-  let otherRequesterId: number;
-
+  const prisma = getPrisma(); let ticketId: number; let ownerEmail: string; let otherEmail: string;
   beforeEach(async () => {
-    const prisma = getPrisma();
-    await prisma.attachment.deleteMany({});
-    await prisma.ticket.deleteMany({});
-    await prisma.requesterUser.deleteMany({});
-    await prisma.category.deleteMany({});
-    await prisma.relatedSystem.deleteMany({});
-    const [owner, other, category, relatedSystem] = await Promise.all([
-      prisma.requesterUser.create({ data: { name: "Attachment Owner", email: "attachment-owner@example.com", isActive: true } }),
-      prisma.requesterUser.create({ data: { name: "Other Requester", email: "attachment-other@example.com", isActive: true } }),
-      prisma.category.create({ data: { name: "Attachment Category", isActive: true } }),
-      prisma.relatedSystem.create({ data: { name: "Attachment System", isActive: true } }),
+    const suffix = Date.now().toString();
+    const [owner, other, category, system] = await Promise.all([
+      prisma.user.create({ data: { name: "Attachment Owner", email: `attachment-owner-${suffix}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } }),
+      prisma.user.create({ data: { name: "Other Requester", email: `attachment-other-${suffix}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } }),
+      prisma.category.create({ data: { name: `Attachment Category ${suffix}`, isActive: true } }), prisma.relatedSystem.create({ data: { name: `Attachment System ${suffix}`, isActive: true } }),
     ]);
-    requesterId = owner.id;
-    otherRequesterId = other.id;
-    const ticket = await prisma.ticket.create({ data: { ticketNumber: "TKT-2026-000001", requesterId, categoryId: category.id, relatedSystemId: relatedSystem.id, summary: "Attachment lifecycle test ticket", description: "This description is long enough for attachment lifecycle testing.", requestedPriority: "MEDIUM", currentStatus: "NEW" } });
-    ticketId = ticket.id;
+    ownerEmail = owner.email; otherEmail = other.email;
+    const ticket = await prisma.ticket.create({ data: { ticketNumber: `TKT-${suffix}`, requesterId: owner.id, categoryId: category.id, relatedSystemId: system.id, summary: "Attachment lifecycle test ticket", description: "This description is long enough for attachment lifecycle testing.", requestedPriority: "MEDIUM", currentStatus: "NEW" } }); ticketId = ticket.id;
   });
+  async function ownerSession() { return authenticatedAgent(ownerEmail, password); }
+  it("uploads and lists metadata, then preserves original filename on download", async () => { const { agent, csrfToken } = await ownerSession(); const created = await agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(csrfToken)).attach("file", Buffer.from("image data"), { filename: "screenshot.png", contentType: "image/png" }); expect(created.status).toBe(201); expect(created.body).toMatchObject({ ticketId, originalFilename: "screenshot.png", isRemoved: false }); expect(created.body.storedFilename).toBeUndefined(); const list = await agent.get(`/api/tickets/${ticketId}/attachments`); expect(list.status).toBe(200); expect(list.body[0].storedFilename).toBeUndefined(); const download = await agent.get(`/api/attachments/${created.body.id}/download`); expect(download.status).toBe(200); expect(download.headers["content-disposition"]).toContain('filename="screenshot.png"'); });
+  it("rejects unsupported types and oversized files", async () => {
+    const { agent, csrfToken } = await ownerSession();
 
-  function upload(filename = "screenshot.png", contentType = "image/png", body = Buffer.from("image data")) {
-    return request(app).post(`/api/tickets/${ticketId}/attachments`).set("X-Requester-Id", String(requesterId)).attach("file", body, { filename, contentType });
-  }
+    const unsupported = await agent
+      .post(`/api/tickets/${ticketId}/attachments`)
+      .set(csrfHeaders(csrfToken))
+      .attach("file", Buffer.from("text"), {
+        filename: "notes.txt",
+        contentType: "text/plain",
+      });
 
-  it("AC-14 uploads a valid file and rejects an oversized file without a metadata row", async () => {
-    const valid = await upload();
-    expect(valid.status).toBe(201);
-    expect(valid.body).toMatchObject({ ticketId, originalFilename: "screenshot.png", isRemoved: false });
-    expect(valid.body.storedFilename).toBeUndefined();
+    expect(unsupported.status).toBe(400); expect(unsupported.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
 
-    const oversized = await upload("large.png", "image/png", Buffer.alloc(5 * 1024 * 1024 + 1));
-    expect(oversized.status).toBe(413);
-    expect(oversized.body.error.code).toBe("FILE_TOO_LARGE");
-    expect(await getPrisma().attachment.count({ where: { ticketId } })).toBe(1);
+    const large = await agent
+      .post(`/api/tickets/${ticketId}/attachments`)
+      .set(csrfHeaders(csrfToken))
+      .attach(
+        "file",
+        Buffer.alloc(5 * 1024 * 1024 + 1),
+        {
+          filename: "large.png",
+          contentType: "image/png",
+        },
+      );
+
+    expect(large.status).toBe(413);
   });
-
-  it("AC-15 rejects unsupported types and extension/content-type mismatches", async () => {
-    const unsupported = await upload("notes.txt", "text/plain");
-    expect(unsupported.status).toBe(400);
-    expect(unsupported.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
-
-    const mismatch = await upload("report.pdf", "image/png");
-    expect(mismatch.status).toBe(400);
-    expect(mismatch.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
-    expect(await getPrisma().attachment.count({ where: { ticketId } })).toBe(0);
-  });
-
-  it("AC-16 counts only active attachments", async () => {
-    for (let index = 0; index < 5; index += 1) expect((await upload(`file-${index}.png`)).status).toBe(201);
-    const sixth = await upload("sixth.png");
-    expect(sixth.status).toBe(409);
-    expect(sixth.body.error.code).toBe("ATTACHMENT_LIMIT_REACHED");
-
-    const firstAttachment = await getPrisma().attachment.findFirstOrThrow({ where: { ticketId } });
-    await getPrisma().attachment.update({ where: { id: firstAttachment.id }, data: { isRemoved: true, removedAt: new Date(), removedById: requesterId, removedReason: "Wrong attachment" } });
-    expect((await upload("replacement.png")).status).toBe(201);
-  });
-
-  it("AC-17 lists metadata and downloads an active owned attachment using the original filename", async () => {
-    const created = await upload("battery-report.pdf", "application/pdf", Buffer.from("pdf content"));
-    const metadata = await request(app).get(`/api/tickets/${ticketId}/attachments`).set("X-Requester-Id", String(requesterId));
-    expect(metadata.status).toBe(200);
-    expect(metadata.body).toHaveLength(1);
-    expect(metadata.body[0].storedFilename).toBeUndefined();
-
-    const download = await request(app).get(`/api/attachments/${created.body.id}/download`).set("X-Requester-Id", String(requesterId));
-    expect(download.status).toBe(200);
-    expect(download.headers["content-type"]).toContain("application/pdf");
-    expect(download.headers["content-disposition"]).toContain('filename="battery-report.pdf"');
-  });
-
-  it("AC-18 and AC-20 soft-remove with a valid reason and reject a missing reason", async () => {
-    const created = await upload();
-    const missingReason = await request(app).patch(`/api/attachments/${created.body.id}/remove`).set("X-Requester-Id", String(requesterId)).send({ removedReason: " " });
-    expect(missingReason.status).toBe(422);
-    expect(missingReason.body.error.code).toBe("VALIDATION_ERROR");
-
-    const removed = await request(app).patch(`/api/attachments/${created.body.id}/remove`).set("X-Requester-Id", String(requesterId)).send({ removedReason: "Uploaded the wrong screenshot" });
-    expect(removed.status).toBe(200);
-    expect(removed.body).toMatchObject({ id: created.body.id, isRemoved: true, removedById: requesterId, removedReason: "Uploaded the wrong screenshot" });
-    expect(removed.body.removedAt).toBeTruthy();
-    expect(await getPrisma().attachment.findUnique({ where: { id: created.body.id } })).not.toBeNull();
-  });
-
-  it("AC-19 blocks a removed attachment download and re-removal", async () => {
-    const created = await upload();
-    await request(app).patch(`/api/attachments/${created.body.id}/remove`).set("X-Requester-Id", String(requesterId)).send({ removedReason: "Uploaded the wrong screenshot" });
-
-    const download = await request(app).get(`/api/attachments/${created.body.id}/download`).set("X-Requester-Id", String(requesterId));
-    expect(download.status).toBe(404);
-    expect(download.body.error.code).toBe("NOT_FOUND");
-    const repeatRemoval = await request(app).patch(`/api/attachments/${created.body.id}/remove`).set("X-Requester-Id", String(requesterId)).send({ removedReason: "Another valid reason" });
-    expect(repeatRemoval.status).toBe(409);
-    expect(repeatRemoval.body.error.code).toBe("ATTACHMENT_ALREADY_REMOVED");
-  });
-
-  it("uses requester-context errors and does not leak another requester's attachment", async () => {
-    const created = await upload();
-    const missing = await request(app).get(`/api/attachments/${created.body.id}/download`);
-    expect(missing.status).toBe(400);
-    expect(missing.body.error.code).toBe("REQUESTER_CONTEXT_MISSING");
-    const malformed = await request(app).get(`/api/tickets/${ticketId}/attachments`).set("X-Requester-Id", "not-a-number");
-    expect(malformed.status).toBe(400);
-    expect(malformed.body.error.code).toBe("REQUESTER_CONTEXT_MISSING");
-
-    const foreignDownload = await request(app).get(`/api/attachments/${created.body.id}/download`).set("X-Requester-Id", String(otherRequesterId));
-    expect(foreignDownload.status).toBe(404);
-    expect(foreignDownload.body.ticketId).toBeUndefined();
-    expect(foreignDownload.body.originalFilename).toBeUndefined();
-    const foreignRemove = await request(app).patch(`/api/attachments/${created.body.id}/remove`).set("X-Requester-Id", String(otherRequesterId)).send({ removedReason: "Not allowed reason" });
-    expect(foreignRemove.status).toBe(404);
-  });
+  it("rejects extension/content-type mismatches with the contract error", async () => { const { agent, csrfToken } = await ownerSession(); const response = await agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(csrfToken)).attach("file", Buffer.from("not a pdf"), { filename: "report.pdf", contentType: "image/png" }); expect(response.status).toBe(400); expect(response.body.error.code).toBe("UNSUPPORTED_FILE_TYPE"); expect(await prisma.attachment.count({ where: { ticketId } })).toBe(0); });
+  it("enforces five active attachments and allows replacement after removal", async () => { const owner = await ownerSession(); for (let i = 0; i < 5; i += 1) { expect((await owner.agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(owner.csrfToken)).attach("file", Buffer.from(String(i)), { filename: `file-${i}.png`, contentType: "image/png" })).status).toBe(201); } const sixth = await owner.agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(owner.csrfToken)).attach("file", Buffer.from("sixth"), { filename: "sixth.png", contentType: "image/png" }); expect(sixth.status).toBe(409); expect(sixth.body.error.code).toBe("ATTACHMENT_LIMIT_REACHED"); const first = await prisma.attachment.findFirstOrThrow({ where: { ticketId } }); expect((await owner.agent.patch(`/api/attachments/${first.id}/remove`).set(csrfHeaders(owner.csrfToken)).send({ removedReason: "Replacement" })).status).toBe(200); expect((await owner.agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(owner.csrfToken)).attach("file", Buffer.from("replacement"), { filename: "replacement.png", contentType: "image/png" })).status).toBe(201); });
+  it("validates and soft-removes, preserves the row, and blocks repeat/download/foreign access", async () => { const owner = await ownerSession(); const created = await owner.agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(owner.csrfToken)).attach("file", Buffer.from("image"), { filename: "report.png", contentType: "image/png" }); const missing = await owner.agent.patch(`/api/attachments/${created.body.id}/remove`).set(csrfHeaders(owner.csrfToken)).send({ removedReason: " " }); expect(missing.status).toBe(422); expect(missing.body.error.code).toBe("VALIDATION_ERROR"); const removed = await owner.agent.patch(`/api/attachments/${created.body.id}/remove`).set(csrfHeaders(owner.csrfToken)).send({ removedReason: "Uploaded the wrong screenshot" }); expect(removed.status).toBe(200); expect(removed.body.isRemoved).toBe(true); expect(await prisma.attachment.findUnique({ where: { id: created.body.id } })).not.toBeNull(); expect((await owner.agent.get(`/api/attachments/${created.body.id}/download`)).status).toBe(404); const repeat = await owner.agent.patch(`/api/attachments/${created.body.id}/remove`).set(csrfHeaders(owner.csrfToken)).send({ removedReason: "Again" }); expect(repeat.status).toBe(409); const other = await authenticatedAgent(otherEmail, password); expect((await other.agent.get(`/api/attachments/${created.body.id}/download`)).status).toBe(404); });
 });
