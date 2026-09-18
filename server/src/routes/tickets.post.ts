@@ -156,6 +156,7 @@ router.post("/api/tickets", async (req: Request, res: Response): Promise<any> =>
           summary: summary.trim(),
           description: description.trim(),
           requestedPriority,
+          itPriority: requestedPriority,
           currentStatus: "NEW",
         },
       });

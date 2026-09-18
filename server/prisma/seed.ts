@@ -151,6 +151,19 @@ async function main() {
     }
   }
 
+  const seededRequesters = await prisma.user.findMany({ where: { role: "REQUESTER", isActive: true }, orderBy: { id: "asc" }, take: 2 });
+  const seededStaff = await prisma.user.findMany({ where: { role: "IT_STAFF", isActive: true }, orderBy: { id: "asc" }, take: 2 });
+  const seededCategory = await prisma.category.findFirst({ where: { isActive: true }, orderBy: { id: "asc" } });
+  const seededSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true }, orderBy: { id: "asc" } });
+  if (seededRequesters.length >= 2 && seededStaff.length >= 2 && seededCategory && seededSystem) {
+    const queueTickets = [
+      { ticketNumber: "TKT-2026-000001", requesterId: seededRequesters[0].id, summary: "Cannot access campus email", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "OPEN" as const, assignedToUserId: seededStaff[0].id },
+      { ticketNumber: "TKT-2026-000002", requesterId: seededRequesters[1].id, summary: "Laptop connectivity issue", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "NEW" as const, assignedToUserId: null },
+      { ticketNumber: "TKT-2026-000003", requesterId: seededRequesters[0].id, summary: "VPN access request", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "IN_PROGRESS" as const, assignedToUserId: seededStaff[1].id },
+    ];
+    for (const ticket of queueTickets) await prisma.ticket.upsert({ where: { ticketNumber: ticket.ticketNumber }, update: ticket, create: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+  }
+
   console.log("Seeding completed successfully.");
 }
 

@@ -19,6 +19,17 @@ enum Priority {
 
 enum TicketStatus {
   NEW
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum ItPriority {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum UserRole {
@@ -38,6 +49,7 @@ model User {
   createdAt            DateTime     @default(now())
 
   tickets             Ticket[]
+  ownedTickets        Ticket[] @relation("TicketOwner")
   uploadedAttachments Attachment[] @relation("AttachmentUploader")
   removedAttachments  Attachment[] @relation("AttachmentRemover")
 }
@@ -70,7 +82,10 @@ model Ticket {
   summary           String
   description       String          @db.Text
   requestedPriority Priority        @default(MEDIUM)
+  itPriority       ItPriority      @default(MEDIUM)
   currentStatus     TicketStatus    @default(NEW)
+  assignedToUserId  Int?
+  assignedTo        User?           @relation("TicketOwner", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   attachments       Attachment[]
