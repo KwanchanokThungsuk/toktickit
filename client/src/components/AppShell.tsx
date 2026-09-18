@@ -10,6 +10,7 @@ export interface AppShellProps {
   children?: ReactNode;
   title?: string;
   navItems?: NavItem[];
+  onLogout?: () => void | Promise<void>;
 }
 
 export default function AppShell({
@@ -19,6 +20,7 @@ export default function AppShell({
     { label: "My Tickets", href: "#/tickets", current: true },
     { label: "Create Ticket", href: "#/tickets/new" },
   ],
+  onLogout,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -56,7 +58,7 @@ export default function AppShell({
               <span />
               <span />
             </button>
-
+            {onLogout ? <button type="button" className="app-header__logout" onClick={() => void onLogout()}>Logout</button> : null}
           </div>
         </div>
       </header>

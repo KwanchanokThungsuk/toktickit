@@ -7,7 +7,7 @@ import Login from "./components/Login";
 import ChangePassword from "./components/ChangePassword";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
-import { currentUser, type AuthUser } from "./api";
+import { currentUser, logout, type AuthUser } from "./api";
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
@@ -26,8 +26,7 @@ export default function App() {
   return <AppShell navItems={[
     { label: "My Tickets", href: "#/tickets", current: !showingCreateTicket },
     { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
-  ]}
->
+  ]} onLogout={async () => { await logout(); setUser(null); }}>
     {showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets />}
   </AppShell>;
 }

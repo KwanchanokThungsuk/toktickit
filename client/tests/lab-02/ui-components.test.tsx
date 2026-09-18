@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import AppShell from "../../src/components/AppShell";
 import FormInput from "../../src/components/FormInput";
 import FormSelect from "../../src/components/FormSelect";
@@ -22,6 +22,13 @@ describe("AppShell", () => {
     expect(screen.getByText("TokTickIT")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Tickets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Create Ticket" })).toHaveAttribute("href", "/tickets/new");
+  });
+
+  it("calls the logout action", () => {
+    const onLogout = vi.fn();
+    render(<AppShell onLogout={onLogout} />);
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
   });
 });
 

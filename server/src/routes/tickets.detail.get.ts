@@ -1,17 +1,14 @@
 import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
-import { authenticatedUserId, requirePasswordChanged } from "../auth.js";
+import { authenticatedUserId, requireRequester } from "../auth.js";
 
 const router = Router();
 
 router.get("/api/tickets/:id", async (req: Request, res: Response) => {
   try {
-    const authenticatedId = authenticatedUserId(req);
-    if (authenticatedId === null) {
-      return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
-    }
-    if (!requirePasswordChanged(req, res)) return;
+    if (!requireRequester(req, res)) return;
+    const authenticatedId = authenticatedUserId(req)!;
     const ticketId = Number(req.params.id);
     const requesterId = authenticatedId;
     if (!Number.isInteger(ticketId) || ticketId < 1) {

@@ -43,6 +43,11 @@ export function invalidateSession(req: Request) { const id = cookies(req)[SESSIO
 export async function attachAuth(req: Request, _res: Response, next: NextFunction) { try { const found = getSession(req); if (found && found.session.userId !== 0) { const user = await getPrisma().user.findUnique({ where: { id: found.session.userId }, select: { id: true, role: true, mustChangePassword: true, isActive: true } }); if (user?.isActive) req.auth = { userId: user.id, role: user.role, mustChangePassword: user.mustChangePassword }; else invalidateSession(req); } next(); } catch (e) { next(e); } }
 export function requireAuth(req: Request, res: Response, next: NextFunction) { if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }); next(); }
 export function requirePasswordChanged(req: Request, res: Response) { if (req.auth?.mustChangePassword) { res.status(403).json({ error: { code: "PASSWORD_CHANGE_REQUIRED", message: "Change your password before continuing." } }); return false; } return true; }
+export function requireRequester(req: Request, res: Response) {
+  if (!req.auth) { res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }); return false; }
+  if (req.auth.role !== "REQUESTER") { res.status(403).json({ error: { code: "FORBIDDEN", message: "Requester access required." } }); return false; }
+  return requirePasswordChanged(req, res);
+}
 export function requireCsrf(req: Request, res: Response) { const found = getSession(req); const token = req.header("X-CSRF-Token"); if (!found || !token || token !== found.session.csrfToken) { res.status(403).json({ error: { code: "CSRF_INVALID", message: "Invalid CSRF token." } }); return false; } return true; }
 export function authenticatedUserId(req: Request): number | null { return req.auth?.userId ?? null; }
 export function sessionForTests() { return sessions; }

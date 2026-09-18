@@ -11,7 +11,7 @@ import ticketGetRouter from "./routes/tickets.get.js";
 import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
 import ticketPostRouter from "./routes/tickets.post.js";
 import authRouter from "./routes/auth.js";
-import { attachAuth, authenticatedUserId, requirePasswordChanged } from "./auth.js";
+import { attachAuth, authenticatedUserId, requireRequester } from "./auth.js";
 
 export const app = express();
 
@@ -62,13 +62,8 @@ function attachmentError(res: Response, status: number, code: string, message: s
 }
 
 async function getRequesterId(req: Request, res: Response): Promise<number | null> {
-  if (!requirePasswordChanged(req, res)) return null;
-  const authenticated = authenticatedUserId(req);
-  if (authenticated === null) {
-    attachmentError(res, 401, "UNAUTHORIZED", "Authentication required");
-    return null;
-  }
-  return authenticated;
+  if (!requireRequester(req, res)) return null;
+  return authenticatedUserId(req)!;
 }
 
 function attachmentExtensionMatches(file: Express.Multer.File) {
