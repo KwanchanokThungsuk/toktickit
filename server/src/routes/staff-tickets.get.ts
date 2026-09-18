@@ -4,7 +4,7 @@ import { internalServerError } from "../internal-error.js";
 import { requireStaff } from "../auth.js";
 
 const router = Router();
-const statuses = ["NEW", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "CANCELLED"];
+const statuses = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED", "RESOLVED", "CLOSED", "CANCELLED"];
 const priorities = ["LOW", "MEDIUM", "HIGH"];
 const sortFields = ["ticketNumber", "createdAt", "updatedAt"];
 

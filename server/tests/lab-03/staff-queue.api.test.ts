@@ -45,6 +45,14 @@ describe("Issue #19 Staff Ticket Queue", () => {
   it("searches by ticket number and case-insensitive summary", async () => { const { agent } = await authenticatedAgent(staff.email, password); expect((await agent.get("/api/staff/tickets").query({ search: "queue-" })).body.items.length).toBe(3); expect((await agent.get("/api/staff/tickets").query({ search: "EMAIL ACCESS" })).body.items[0].summary).toBe("Email access issue"); });
   it("filters status and IT Priority", async () => { const { agent } = await authenticatedAgent(staff.email, password); expect((await agent.get("/api/staff/tickets").query({ status: "OPEN" })).body.items.every((item: any) => item.currentStatus === "OPEN")).toBe(true); expect((await agent.get("/api/staff/tickets").query({ itPriority: "LOW" })).body.items.every((item: any) => item.itPriority === "LOW")).toBe(true); });
   it("accepts the documented CANCELLED status", async () => { const { agent } = await authenticatedAgent(staff.email, password); const response = await agent.get("/api/staff/tickets").query({ status: "CANCELLED" }); expect(response.status).toBe(200); expect(response.body.items.every((item: any) => item.currentStatus === "CANCELLED")).toBe(true); });
+  it("accepts every documented Ticket status as a queue filter", async () => {
+    const { agent } = await authenticatedAgent(staff.email, password);
+    for (const status of ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED", "RESOLVED", "CLOSED", "CANCELLED"]) {
+      const response = await agent.get("/api/staff/tickets").query({ status });
+      expect(response.status).toBe(200);
+      expect(response.body.items.every((item: any) => item.currentStatus === status)).toBe(true);
+    }
+  });
   it("sorts, applies default ordering, and returns pagination metadata", async () => {
     const { agent } = await authenticatedAgent(staff.email, password);
     for (const sortBy of ["ticketNumber", "createdAt", "updatedAt"] as const) {
