@@ -47,10 +47,13 @@ describe("Create Ticket API", () => {
 
   it("creates a valid ticket for the authenticated requester", async () => {
     const { agent, csrfToken } = await authenticatedAgent(email, password);
-    const res = await agent.post("/api/tickets").set(csrfHeaders(csrfToken)).send(validPayload);
+    const res = await agent.post("/api/tickets").set(csrfHeaders(csrfToken)).send({ ...validPayload, requesterId: 999999 });
     expect(res.status).toBe(201); expect(res.body).toHaveProperty("ticketNumber"); expect(res.body.currentStatus).toBe("NEW");
     ticketId = (await getPrisma().ticket.findUniqueOrThrow({ where: { ticketNumber: res.body.ticketNumber }, select: { id: true } })).id;
     const user = await getPrisma().user.findUniqueOrThrow({ where: { email } });
     expect(res.body.requesterId).toBe(user.id);
+    expect(res.body.requesterId).not.toBe(999999);
+    expect(res.body.itPriority).toBe(validPayload.requestedPriority);
+    expect(res.body.assignedToUserId).toBeNull();
   });
 });

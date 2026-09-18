@@ -10,6 +10,7 @@ import { internalServerError } from "./internal-error.js";
 import ticketGetRouter from "./routes/tickets.get.js";
 import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
 import ticketPostRouter from "./routes/tickets.post.js";
+import staffTicketsRouter from "./routes/staff-tickets.get.js";
 import authRouter from "./routes/auth.js";
 import { attachAuth, authenticatedUserId, requireRequester } from "./auth.js";
 
@@ -25,6 +26,7 @@ app.use(authRouter);
 app.use(ticketGetRouter);
 app.use(ticketDetailGetRouter);
 app.use(ticketPostRouter);
+app.use(staffTicketsRouter);
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const MAX_ACTIVE_ATTACHMENTS = 5;

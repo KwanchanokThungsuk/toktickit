@@ -7,7 +7,7 @@
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
 | #17 | feature/17-lab3-spec-contract | Commented and approved |
-| #18 | feature/18-authentication |  |
+| #18 | feature/18-authentication | Commented and approved |
 | #19 | feature/19-authorization-requester |  |
 | #20 | feature/20-staff-ticket-queue |  |
 | #21 | feature/21-staff-ticket-operations |  |
@@ -28,7 +28,12 @@
 
 **feature/18-authentication**
 - Reviewer comment I received: 
-- How I responded: 
+    - Authentication implementation is heading in the right direction, but I found a couple of issues that should be resolved before approval:
+        - App.tsx still appears to contain the old RequesterProvider / RequesterSelection flow together with the new authenticated-user flow. Lab 3 requires the Development Requester selector and Change Requester behavior to be removed completely, with Requester identity coming from the authenticated account.
+        - CreateTicket.tsx still performs the ticket POST directly and does not appear to include the authenticated credentials/CSRF mechanism used by the new API helpers. Please make this consistent with the Lab 3 authentication contract.
+        - Please verify that the authentication tests cover the required negative/security cases such as invalid credentials, inactive users, mandatory first-password change, logout invalidation, and authenticated Requester ownership.
+- How I responded: Fixed the remaining review feedback for Issue #18.
+Added Logout and enforced REQUESTER-only authorization for requester ticket/attachment APIs. 🤤
 
 **feature/19-authorization-requester**
 - Reviewer comment I received: 
@@ -60,6 +65,18 @@
 
 
 ## Pull Requests I reviewed for my partner
-****
-- My comment: 
-- Partner's response:
+**feature/13-specification-docs-lab3*
+- My comment: Create User activation state mismatch
+UI Spec allows selecting Active/Inactive when creating a user, but POST /api/admin/users does not define an active request field and currently defaults to active. Please make the UI/API contract consistent.
+
+Create User acceptance/test coverage
+AC-28 currently verifies creation and one-role assignment, but does not explicitly cover the required initial password and activation state. Please update the AC and add corresponding tests/traceability.
+
+Overall review:
+I reviewed the other parts of the Lab 3 specification, API specification, UI specification, and test plan against the Lab 3 requirements. The remaining sections look consistent and cover the required functionality. I only found the two issues above that need clarification/update.
+- Partner's response: thx. I will fix it.
+
+**feature/14-user-model-migration*
+- My comment: I found one blocking issue regarding AC-09: the PR does not include the migration-regression.integration.test.ts referenced by docs/lab-03/tests.md for MIG-01 and MIG-02.
+Please add the referenced migration/seed regression test, or update the test documentation to reflect the actual test evidence. The AC-09 coverage should demonstrate preservation of existing IDs/ownership/history, Ticket and Attachment relationships, itPriority backfill, required seed data, and safe/idempotent seed reruns without duplicate dat
+- Partner's response: Already add the migration.integration.test.ts. Pls recheck the PR.

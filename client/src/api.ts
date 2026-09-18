@@ -71,6 +71,11 @@ export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
 export type TicketStatus = "NEW";
 export type TicketSortBy = "ticketNumber" | "createdAt" | "updatedAt";
 export type TicketSortOrder = "asc" | "desc";
+export type StaffTicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
+export interface StaffTicket { id: number; ticketNumber: string; createdAt: string; updatedAt: string; summary: string; requestedPriority: TicketPriority; itPriority: TicketPriority; currentStatus: StaffTicketStatus; category: Category; relatedSystem: RelatedSystem; assignedTo: { id: number; name: string; email: string } | null; }
+export interface StaffTicketResponse { items: StaffTicket[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
+export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; }
+export async function fetchStaffTickets(options: StaffTicketOptions = {}): Promise<StaffTicketResponse> { const params = new URLSearchParams(); Object.entries(options).forEach(([key, value]) => { if (value !== undefined && value !== "") params.set(key, String(value)); }); const res = await fetch(`${API_URL}/api/staff/tickets?${params}`, { credentials: "include" }); const body = await res.json(); if (!res.ok) throw new Error(body.error?.message ?? "Unable to load ticket queue"); return body; }
 
 export interface TicketListItem {
   id: number;
