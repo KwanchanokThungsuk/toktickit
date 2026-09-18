@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getPrisma } from "../../src/prisma.js";
 import { hashPassword } from "../../src/auth.js";
 import { authenticatedAgent } from "./auth-helper.js";
@@ -6,14 +6,21 @@ import { authenticatedAgent } from "./auth-helper.js";
 const password = "Regression Password 1";
 describe("My Tickets API", () => {
   const prisma = getPrisma(); let a: { id: number; email: string }; let b: { id: number; email: string }; let categoryId: number; let systemId: number; let suffix: string;
-  let ticketNumbers: string[];
+  let ticketNumbers: string[]; let ticketIds: number[] = []; let extraCategoryIds: number[] = []; let extraSystemIds: number[] = [];
   beforeEach(async () => {
     suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     ticketNumbers = [`TKT-MY-${suffix}-1`, `TKT-MY-${suffix}-2`, `TKT-MY-${suffix}-3`, `TKT-MY-${suffix}-4`, `TKT-MY-${suffix}-5`, `TKT-MY-${suffix}-6`];
     const category = await prisma.category.create({ data: { name: `Hardware ${suffix}`, isActive: true } }); const system = await prisma.relatedSystem.create({ data: { name: `Campus Wi-Fi ${suffix}`, isActive: true } }); categoryId = category.id; systemId = system.id;
     a = await prisma.user.create({ data: { name: "Requester A", email: `tickets-a-${suffix}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } }); b = await prisma.user.create({ data: { name: "Requester B", email: `tickets-b-${suffix}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } });
   });
-  async function ticket(requesterId: number, ticketNumber: string, summary: string, options: { categoryId?: number; relatedSystemId?: number; requestedPriority?: "LOW" | "MEDIUM" | "HIGH" } = {}) { return prisma.ticket.create({ data: { ticketNumber, requesterId, categoryId, relatedSystemId: systemId, summary, description: "This is a test ticket description for My Tickets API.", requestedPriority: "MEDIUM", currentStatus: "NEW", ...options } }); }
+  afterEach(async () => {
+    await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: [a?.id, b?.id].filter(Boolean) as number[] } } });
+    await prisma.category.deleteMany({ where: { id: { in: [categoryId, ...extraCategoryIds].filter(Boolean) } } });
+    await prisma.relatedSystem.deleteMany({ where: { id: { in: [systemId, ...extraSystemIds].filter(Boolean) } } });
+    ticketIds = []; extraCategoryIds = []; extraSystemIds = [];
+  });
+  async function ticket(requesterId: number, ticketNumber: string, summary: string, options: { categoryId?: number; relatedSystemId?: number; requestedPriority?: "LOW" | "MEDIUM" | "HIGH" } = {}) { const created = await prisma.ticket.create({ data: { ticketNumber, requesterId, categoryId, relatedSystemId: systemId, summary, description: "This is a test ticket description for My Tickets API.", requestedPriority: "MEDIUM", currentStatus: "NEW", ...options } }); ticketIds.push(created.id); return created; }
   it("returns only the authenticated requester's tickets", async () => { await ticket(a.id, ticketNumbers[0], "A cannot connect to Wi-Fi"); await ticket(b.id, ticketNumbers[1], "B cannot access email"); const { agent } = await authenticatedAgent(a.email, password); const res = await agent.get("/api/tickets"); expect(res.status).toBe(200); expect(res.body.meta.totalItems).toBe(1); expect(res.body.data[0].ticketNumber).toBe(ticketNumbers[0]); });
   it("isolates requester B from requester A", async () => { await ticket(a.id, ticketNumbers[2], "A private ticket"); await ticket(b.id, ticketNumbers[3], "B private ticket"); const { agent } = await authenticatedAgent(b.email, password); const res = await agent.get("/api/tickets"); expect(res.status).toBe(200); expect(res.body.data.map((x: any) => x.ticketNumber)).toEqual([ticketNumbers[3]]); });
   it("supports case-insensitive search and pagination", async () => { await ticket(a.id, ticketNumbers[4], "Cannot connect to Campus WiFi"); await ticket(a.id, ticketNumbers[5], "Printer is not working"); const { agent } = await authenticatedAgent(a.email, password); const search = await agent.get("/api/tickets").query({ search: "CAMPUS WIFI" }); expect(search.status).toBe(200); expect(search.body.data[0].ticketNumber).toBe(ticketNumbers[4]); const page = await agent.get("/api/tickets").query({ page: 1, pageSize: 10 }); expect(page.status).toBe(200); expect(page.body.meta.pageSize).toBe(10); });
@@ -25,6 +32,7 @@ describe("My Tickets API", () => {
   it("filters category, related system, priority, and all conditions together", async () => {
     const otherCategory = await prisma.category.create({ data: { name: `Other Category ${suffix}`, isActive: true } });
     const otherSystem = await prisma.relatedSystem.create({ data: { name: `Other System ${suffix}`, isActive: true } });
+    extraCategoryIds.push(otherCategory.id); extraSystemIds.push(otherSystem.id);
     const match = `TKT-MY-${suffix}-match`;
     const categoryOnly = `TKT-MY-${suffix}-category`;
     const systemOnly = `TKT-MY-${suffix}-system`;

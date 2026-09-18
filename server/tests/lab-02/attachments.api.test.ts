@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 import { getPrisma } from "../../src/prisma.js";
 import { hashPassword } from "../../src/auth.js";
 import { authenticatedAgent, csrfHeaders } from "./auth-helper.js";
 
 const password = "Regression Password 1";
 describe("Attachment lifecycle API", () => {
-  const prisma = getPrisma(); let ticketId: number; let ownerEmail: string; let otherEmail: string;
+  const prisma = getPrisma(); let ticketId: number; let ownerEmail: string; let otherEmail: string; let ownerId: number; let otherId: number; let categoryId: number; let relatedSystemId: number;
   beforeEach(async () => {
     const suffix = Date.now().toString();
     const [owner, other, category, system] = await Promise.all([
@@ -14,7 +16,17 @@ describe("Attachment lifecycle API", () => {
       prisma.category.create({ data: { name: `Attachment Category ${suffix}`, isActive: true } }), prisma.relatedSystem.create({ data: { name: `Attachment System ${suffix}`, isActive: true } }),
     ]);
     ownerEmail = owner.email; otherEmail = other.email;
+    ownerId = owner.id; otherId = other.id; categoryId = category.id; relatedSystemId = system.id;
     const ticket = await prisma.ticket.create({ data: { ticketNumber: `TKT-${suffix}`, requesterId: owner.id, categoryId: category.id, relatedSystemId: system.id, summary: "Attachment lifecycle test ticket", description: "This description is long enough for attachment lifecycle testing.", requestedPriority: "MEDIUM", currentStatus: "NEW" } }); ticketId = ticket.id;
+  });
+  afterEach(async () => {
+    const attachments = ticketId ? await prisma.attachment.findMany({ where: { ticketId }, select: { id: true, storedFilename: true } }) : [];
+    await prisma.attachment.deleteMany({ where: { id: { in: attachments.map((attachment) => attachment.id) } } });
+    await Promise.all(attachments.map((attachment) => unlink(path.resolve(process.cwd(), ".data", "attachments", attachment.storedFilename)).catch(() => undefined)));
+    if (ticketId) await prisma.ticket.deleteMany({ where: { id: ticketId } });
+    await prisma.user.deleteMany({ where: { id: { in: [ownerId, otherId] } } });
+    await prisma.category.deleteMany({ where: { id: categoryId } });
+    await prisma.relatedSystem.deleteMany({ where: { id: relatedSystemId } });
   });
   async function ownerSession() { return authenticatedAgent(ownerEmail, password); }
   it("uploads and lists metadata, then preserves original filename on download", async () => { const { agent, csrfToken } = await ownerSession(); const created = await agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(csrfToken)).attach("file", Buffer.from("image data"), { filename: "screenshot.png", contentType: "image/png" }); expect(created.status).toBe(201); expect(created.body).toMatchObject({ ticketId, originalFilename: "screenshot.png", isRemoved: false }); expect(created.body.storedFilename).toBeUndefined(); const list = await agent.get(`/api/tickets/${ticketId}/attachments`); expect(list.status).toBe(200); expect(list.body[0].storedFilename).toBeUndefined(); const download = await agent.get(`/api/attachments/${created.body.id}/download`); expect(download.status).toBe(200); expect(download.headers["content-disposition"]).toContain('filename="screenshot.png"'); });

@@ -1,9 +1,23 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Category, fetchCategories, fetchRelatedSystems, RelatedSystem, uploadAttachment } from "../api";
+import {
+  Category,
+  RelatedSystem,
+  TicketPriority,
+  createTicket,
+  fetchCategories,
+  fetchRelatedSystems,
+  uploadAttachment,
+} from "../api";
 
 type LoadState = "loading" | "ready" | "error";
 type FormField = "category" | "relatedSystem" | "priority" | "summary" | "description";
-type FormValues = Record<FormField, string>;
+type FormValues = {
+  category: string;
+  relatedSystem: string;
+  priority: TicketPriority;
+  summary: string;
+  description: string;
+};
 type ValidationErrors = Partial<Record<FormField, string>>;
 interface FailedUpload {
   file: File;
@@ -76,8 +90,14 @@ export default function CreateTicket() {
   }, []);
 
   function updateField(field: FormField, value: string) {
-    setFormValues((currentValues) => ({ ...currentValues, [field]: value }));
-    setValidationErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      [field]: value,
+    }));
+    setValidationErrors((currentErrors) => ({
+      ...currentErrors,
+      [field]: undefined,
+    }));
     setSubmitError("");
   }
 
@@ -147,46 +167,17 @@ export default function CreateTicket() {
     setSubmitError("");
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/tickets`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          categoryId: Number(formValues.category),
-          relatedSystemId: Number(formValues.relatedSystem),
-          summary: formValues.summary.trim(),
-          description: formValues.description.trim(),
-          requestedPriority: formValues.priority,
-        }),
+      const ticket = await createTicket({
+        categoryId: Number(formValues.category),
+        relatedSystemId: Number(formValues.relatedSystem),
+        summary: formValues.summary.trim(),
+        description: formValues.description.trim(),
+        requestedPriority: formValues.priority,
       });
 
-      if (!response.ok) {
-        let message = "Unable to create ticket. Please try again.";
-        if (response.status < 500) {
-          try {
-            const responseBody = await response.json();
-            if (typeof responseBody?.error?.message === "string") {
-              message = responseBody.error.message;
-            } else if (typeof responseBody?.message === "string") {
-              message = responseBody.message;
-            }
-          } catch {
-            // Keep fallback
-          }
-        }
-        throw new Error(message);
-      }
-
-      if (response.status !== 201) {
-        throw new Error("Unable to create ticket. Please try again.");
-      }
-
-      const ticket = await response.json();
-      setSuccessTicketNumber(ticket.ticketNumber);
-      setCreatedTicketId(ticket.id);
-      setFailedUploads([]);
+setSuccessTicketNumber(ticket.ticketNumber);
+setCreatedTicketId(ticket.id);
+setFailedUploads([]);
 
       if (selectedFiles.length > 0) {
         const failures: FailedUpload[] = [];

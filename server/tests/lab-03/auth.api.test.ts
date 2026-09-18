@@ -2,20 +2,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
-import { hashPassword, passwordLength, validPassword } from "../../src/auth.js";
+import { hashPassword, passwordLength, sessionForTests, validPassword } from "../../src/auth.js";
 
 const prisma = getPrisma();
 const currentPassword = "Initial Password 1";
 const newPassword = "Replacement Password 1";
+const createdUserIds: number[] = [];
 async function makeUser(overrides: Record<string, unknown> = {}) {
-  return prisma.user.create({ data: ({ name: "Auth Test", email: `auth-${Date.now()}-${Math.random()}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(currentPassword), ...overrides } as any) });
+  const user = await prisma.user.create({ data: ({ name: "Auth Test", email: `auth-${Date.now()}-${Math.random()}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(currentPassword), ...overrides } as any) });
+  createdUserIds.push(user.id);
+  return user;
 }
 async function login(email: string, password = currentPassword) {
   const agent = request.agent(app); const csrf = await agent.get("/api/auth/csrf");
   const response = await agent.post("/api/auth/login").set("X-CSRF-Token", csrf.body.csrfToken).send({ email, password });
   return { agent, response, csrfToken: response.headers["x-csrf-token"] ?? csrf.body.csrfToken };
 }
-afterEach(() => vi.useRealTimers());
+afterEach(async () => {
+  vi.useRealTimers();
+  const userIds = createdUserIds.splice(0);
+  for (const [sessionId, session] of sessionForTests()) {
+    if (userIds.includes(session.userId)) sessionForTests().delete(sessionId);
+  }
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+});
 
 describe("Issue #18 AUTH-01 through AUTH-18", () => {
   it("AUTH-01 active login returns identity", async () => { const u = await makeUser({ mustChangePassword: true }); const r = await login(u.email); expect(r.response.status).toBe(200); expect(r.response.body.user).toMatchObject({ id: u.id, email: u.email, role: "REQUESTER", mustChangePassword: true }); });

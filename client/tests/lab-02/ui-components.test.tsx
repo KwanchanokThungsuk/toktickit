@@ -8,11 +8,10 @@ import Empty from "../../src/components/Empty";
 import ErrorState from "../../src/components/ErrorState";
 
 describe("AppShell", () => {
-  it("renders the title, navigation, and requester details", () => {
+  it("renders the title and navigation", () => {
     render(
       <AppShell
         title="TokTickIT"
-        requesterName="Alex Morgan"
         navItems={[
           { label: "My Tickets", href: "/tickets", current: true },
           { label: "Create Ticket", href: "/tickets/new" },
@@ -23,7 +22,6 @@ describe("AppShell", () => {
     expect(screen.getByText("TokTickIT")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Tickets" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Create Ticket" })).toHaveAttribute("href", "/tickets/new");
-    expect(screen.getByText("Alex Morgan")).toBeInTheDocument();
   });
 });
 
