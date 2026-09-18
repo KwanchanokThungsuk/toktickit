@@ -1,17 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
-import { useRequester } from "../../src/components/RequesterContext";
 import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 import {
   downloadAttachment,
   removeAttachment,
   uploadAttachment,
 } from "../../src/api";
-
-vi.mock("../../src/components/RequesterContext", () => ({
-  useRequester: vi.fn(),
-}));
 
 vi.mock("../../src/api.detail", () => ({
   fetchTicket: vi.fn(),
@@ -57,11 +52,6 @@ const ticket: TicketDetail = {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  vi.mocked(useRequester).mockReturnValue({
-    selectedRequester: requester,
-    setSelectedRequester: vi.fn(),
-    clearSelectedRequester: vi.fn(),
-  });
 
   vi.mocked(fetchTicket).mockResolvedValue(ticket);
 
@@ -134,7 +124,6 @@ describe("RequesterTicketDetail", () => {
 
     expect(fetchTicket).toHaveBeenCalledWith(
       42,
-      requester.id,
     );
   });
 
@@ -168,7 +157,6 @@ describe("RequesterTicketDetail", () => {
     await waitFor(() =>
       expect(downloadAttachment).toHaveBeenCalledWith(
         7,
-        requester.id,
       ),
     );
 
@@ -316,7 +304,6 @@ describe("RequesterTicketDetail", () => {
       expect(removeAttachment).toHaveBeenCalledWith(
         7,
         "Uploaded the wrong file",
-        requester.id,
       ),
     );
 

@@ -1,4 +1,12 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export interface AuthUser { id: number; name: string; email: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; mustChangePassword: boolean }
+let csrfToken = "";
+async function csrf() { const r = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" }); const b = await r.json(); csrfToken = b.csrfToken; return csrfToken; }
+async function csrfHeader() { if (!csrfToken) await csrf(); return { "X-CSRF-Token": csrfToken }; }
+export async function login(email: string, password: string) { await csrf(); const r = await fetch(`${API_URL}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ email, password }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to sign in"); await csrf(); return b.user as AuthUser; }
+export async function currentUser() { const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" }); if (!r.ok) return null; return ((await r.json()) as { user: AuthUser }).user; }
+export async function logout() { if (!csrfToken) await csrf(); await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } }); csrfToken = ""; }
+export async function changePassword(currentPassword: string, newPassword: string) { if (!csrfToken) await csrf(); const r = await fetch(`${API_URL}/api/auth/change-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ currentPassword, newPassword }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to change password"); return b; }
 
 export interface Category {
   id: number;
@@ -10,11 +18,6 @@ export interface RelatedSystem {
   name: string;
 }
 
-export interface Requester {
-  id: number;
-  name: string;
-  email: string;
-}
 
 export interface SystemStatus {
   online: boolean;
@@ -40,18 +43,6 @@ export async function checkSystem(): Promise<SystemStatus> {
   return { online: true, categories };
 }
 
-// Issue 8 — fetch requesters from the backend.
-// Calls GET /api/requesters to get all active requesters for the Development Requester selector.
-// Throwing on failure lets the UI show an error state.
-export async function fetchRequesters(): Promise<Requester[]> {
-  const res = await fetch(`${API_URL}/api/requesters`);
-  if (!res.ok) {
-    throw new Error("Failed to fetch requesters");
-  }
-  const requesters: Requester[] = await res.json();
-  return requesters;
-}
-
 export async function fetchCategories(): Promise<Category[]> {
   const res = await fetch(`${API_URL}/api/categories`);
   if (!res.ok) {
@@ -71,7 +62,7 @@ export async function fetchRelatedSystems(): Promise<RelatedSystem[]> {
 export interface CreateTicketPayload {
   categoryId: number;
   relatedSystemId: number;
-  priority: string;
+  requestedPriority: TicketPriority;
   summary: string;
   description: string;
 }
@@ -106,7 +97,6 @@ export interface TicketListResponse {
 }
 
 export interface FetchTicketsOptions {
-  requesterId: number;
   search?: string;
   categoryId?: string;
   relatedSystemId?: string;
@@ -118,26 +108,28 @@ export interface FetchTicketsOptions {
   pageSize: number;
 }
 
-export async function fetchTickets({ requesterId, ...options }: FetchTicketsOptions): Promise<TicketListResponse> {
+export async function fetchTickets(options: FetchTicketsOptions): Promise<TicketListResponse> {
   const params = new URLSearchParams();
   Object.entries(options).forEach(([key, value]) => {
     if (value !== undefined && value !== "") params.set(key, String(value));
   });
 
   const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Unable to load your tickets");
   return res.json();
 }
 
-export async function createTicket(payload: CreateTicketPayload, requesterId: number) {
+export async function createTicket(payload: CreateTicketPayload) {
+  const token = await csrfHeader();
   const res = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Requester-Id": requesterId.toString(),
+      ...token,
     },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -176,18 +168,15 @@ function attachmentErrorMessage(
   return fallback;
 }
 
-export async function uploadAttachment(ticketId: number, file: File, requesterId: number): Promise<AttachmentMetadata> {
+export async function uploadAttachment(ticketId: number, file: File): Promise<AttachmentMetadata> {
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
   const formData = new FormData();
   formData.append("file", file); 
 
   const response = await fetch(`${apiUrl}/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    headers: {
-      "X-Requester-Id": String(requesterId),
-      // ห้ามใส่ Content-Type application/json เพราะใช้ FormData
-    },
-    body: formData,
+    // Do not set Content-Type manually for FormData.
+    body: formData, credentials: "include", headers: await csrfHeader(),
   });
 
   if (!response.ok) {
@@ -203,18 +192,18 @@ export async function uploadAttachment(ticketId: number, file: File, requesterId
   return response.json() as Promise<AttachmentMetadata>;
 }
 
-export async function fetchAttachments(ticketId: number, requesterId: number): Promise<AttachmentMetadata[]> {
+export async function fetchAttachments(ticketId: number): Promise<AttachmentMetadata[]> {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!response.ok) throw new Error("Unable to load attachments");
   return response.json() as Promise<AttachmentMetadata[]>;
 }
 
-export async function removeAttachment(attachmentId: number, removedReason: string, requesterId: number): Promise<AttachmentMetadata> {
+export async function removeAttachment(attachmentId: number, removedReason: string): Promise<AttachmentMetadata> {
   const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/remove`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", "X-Requester-Id": String(requesterId) },
+    headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, credentials: "include",
     body: JSON.stringify({ removedReason }),
   });
   if (!response.ok) {
@@ -225,9 +214,9 @@ export async function removeAttachment(attachmentId: number, removedReason: stri
   return response.json() as Promise<AttachmentMetadata>;
 }
 
-export async function downloadAttachment(attachmentId: number, requesterId: number): Promise<{ blob: Blob; filename: string }> {
+export async function downloadAttachment(attachmentId: number): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/download`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!response.ok) {
     let body: unknown;

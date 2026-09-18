@@ -1,23 +1,16 @@
 import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
+import { authenticatedUserId, requireRequester } from "../auth.js";
 
 const router = Router();
 
 router.get("/api/tickets/:id", async (req: Request, res: Response) => {
   try {
-    const requesterIdHeader = req.header("X-Requester-Id");
-    if (!requesterIdHeader || !/^\d+$/.test(requesterIdHeader)) {
-      return res.status(400).json({
-        error: {
-          code: "REQUESTER_CONTEXT_MISSING",
-          message: "Missing or invalid X-Requester-Id header",
-        },
-      });
-    }
-
+    if (!requireRequester(req, res)) return;
+    const authenticatedId = authenticatedUserId(req)!;
     const ticketId = Number(req.params.id);
-    const requesterId = Number(requesterIdHeader);
+    const requesterId = authenticatedId;
     if (!Number.isInteger(ticketId) || ticketId < 1) {
       return res.status(404).json({
         error: { code: "NOT_FOUND", message: "Ticket not found" },

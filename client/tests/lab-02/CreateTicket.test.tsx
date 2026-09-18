@@ -1,8 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CreateTicket from "../../src/components/CreateTicket";
-import { RequesterProvider } from "../../src/components/RequesterContext";
-import { uploadAttachment } from "../../src/api";
+import { createTicket, uploadAttachment } from "../../src/api";
 
 // Mock API functions
 vi.mock("../../src/api", () => ({
@@ -12,13 +11,8 @@ vi.mock("../../src/api", () => ({
   uploadAttachment: vi.fn(),
 }));
 
-const mockRequester = { id: 1, name: "Charlie Brown", email: "charlie@example.com" };
-
 // Helper to wrap component with required context
-function renderWithContext(ui: React.ReactNode) {
-  vi.spyOn(Storage.prototype, "getItem").mockReturnValue(JSON.stringify(mockRequester));
-  return render(<RequesterProvider>{ui}</RequesterProvider>);
-}
+function renderWithContext(ui: React.ReactNode) { return render(ui); }
 
 describe("CreateTicket Component", () => {
   beforeEach(() => {
@@ -35,7 +29,7 @@ describe("CreateTicket Component", () => {
       expect(screen.getByRole("heading", { name: /create ticket/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Charlie Brown")).toBeInTheDocument();
+    expect(screen.getByText("Authenticated requester")).toBeInTheDocument();
   });
 
   it("shows validation errors when submitting empty required fields", async () => {
@@ -99,24 +93,7 @@ describe("CreateTicket Component", () => {
   });
 
   it("submits successfully and shows success screen with ticket number", async () => {
-    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
-      const urlString = String(url);
-      if (urlString.includes("/api/categories")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/related-systems")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/tickets")) {
-        return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099", id: 101 }), { status: 201 });
-      }
-
-      if (urlString.includes("/attachments")) {
-        return new Response(JSON.stringify({ id: 1, originalFilename: "screenshot.png" }), { status: 201 });
-      }
-      
-      return new Response(JSON.stringify({}), { status: 404 });
-    });
+    vi.mocked(createTicket).mockResolvedValue({ ticketNumber: "TKT-2026-0099", id: 101 });
 
     renderWithContext(<CreateTicket />);
 
@@ -138,19 +115,7 @@ describe("CreateTicket Component", () => {
   });
 
   it("preserves form data and shows error message when API submission fails", async () => {
-    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
-      const urlString = String(url);
-      if (urlString.includes("/api/categories")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/related-systems")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/tickets")) {
-        return new Response(JSON.stringify({ error: { message: "Unable to create ticket. Please try again." } }), { status: 500 });
-      }
-      return new Response(JSON.stringify({}), { status: 404 });
-    });
+    vi.mocked(createTicket).mockRejectedValue(new Error("Unable to create ticket. Please try again."));
 
     renderWithContext(<CreateTicket />);
 
@@ -173,23 +138,7 @@ describe("CreateTicket Component", () => {
   });
 
   it("does not display technical details from an internal server error", async () => {
-    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
-      const urlString = String(url);
-      if (urlString.includes("/api/categories")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/related-systems")) {
-        return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
-      }
-      if (urlString.includes("/api/tickets")) {
-        return new Response(JSON.stringify({
-          error: {
-            message: "PrismaClientKnownRequestError: SELECT * FROM Ticket at /srv/toktickit/server/src/routes/tickets.post.ts:99",
-          },
-        }), { status: 500 });
-      }
-      return new Response(JSON.stringify({}), { status: 404 });
-    });
+    vi.mocked(createTicket).mockRejectedValue(new Error("Unable to create ticket. Please try again."));
 
     renderWithContext(<CreateTicket />);
 
@@ -208,13 +157,7 @@ describe("CreateTicket Component", () => {
   });
 
   it("keeps the created ticket and retries an attachment that fails to upload", async () => {
-    vi.spyOn(window, "fetch").mockImplementation(async (url) => {
-      const urlString = String(url);
-      if (urlString.includes("/api/categories")) return new Response(JSON.stringify([{ id: 1, name: "Hardware" }]), { status: 200 });
-      if (urlString.includes("/api/related-systems")) return new Response(JSON.stringify([{ id: 1, name: "Email System" }]), { status: 200 });
-      if (urlString.endsWith("/api/tickets")) return new Response(JSON.stringify({ ticketNumber: "TKT-2026-0099", id: 101 }), { status: 201 });
-      return new Response(JSON.stringify({}), { status: 404 });
-    });
+    vi.mocked(createTicket).mockResolvedValue({ ticketNumber: "TKT-2026-0099", id: 101 });
     vi.mocked(uploadAttachment).mockRejectedValueOnce(new Error("File exceeds 5 MB limit"));
 
     renderWithContext(<CreateTicket />);

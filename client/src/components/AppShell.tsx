@@ -10,8 +10,7 @@ export interface AppShellProps {
   children?: ReactNode;
   title?: string;
   navItems?: NavItem[];
-  requesterName?: string;
-  onChangeRequester?: () => void;
+  onLogout?: () => void | Promise<void>;
 }
 
 export default function AppShell({
@@ -21,8 +20,7 @@ export default function AppShell({
     { label: "My Tickets", href: "#/tickets", current: true },
     { label: "Create Ticket", href: "#/tickets/new" },
   ],
-  requesterName = "Alex Morgan",
-  onChangeRequester,
+  onLogout,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -60,21 +58,7 @@ export default function AppShell({
               <span />
               <span />
             </button>
-
-            <span className="app-header__requester" title={requesterName}>
-              {requesterName}
-            </span>
-
-            <button
-              type="button"
-              className="app-header__action"
-              onClick={onChangeRequester}
-              title="Change Requester"
-            >
-              <span className="app-header__action-label">
-                Change Requester
-              </span>
-            </button>
+            {onLogout ? <button type="button" className="app-header__logout" onClick={() => void onLogout()}>Logout</button> : null}
           </div>
         </div>
       </header>

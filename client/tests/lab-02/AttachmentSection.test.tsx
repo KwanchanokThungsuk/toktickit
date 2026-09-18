@@ -1,10 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
-import { useRequester } from "../../src/components/RequesterContext";
 import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 
-vi.mock("../../src/components/RequesterContext", () => ({ useRequester: vi.fn() }));
 vi.mock("../../src/api.detail", () => ({ fetchTicket: vi.fn() }));
 vi.mock("../../src/api", () => ({ downloadAttachment: vi.fn(), removeAttachment: vi.fn(), uploadAttachment: vi.fn() }));
 
@@ -25,7 +23,6 @@ const ticket: TicketDetail = {
 
 describe("AttachmentSection", () => {
   beforeEach(() => {
-    vi.mocked(useRequester).mockReturnValue({ selectedRequester: requester, setSelectedRequester: vi.fn(), clearSelectedRequester: vi.fn() });
     vi.mocked(fetchTicket).mockResolvedValue(ticket);
   });
 

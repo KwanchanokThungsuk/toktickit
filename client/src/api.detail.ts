@@ -29,10 +29,9 @@ export interface TicketDetail {
 
 export async function fetchTicket(
   ticketId: number,
-  requesterId: number,
 ): Promise<TicketDetail> {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
 
   if (!response.ok) {

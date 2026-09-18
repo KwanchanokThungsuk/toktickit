@@ -1,50 +1,25 @@
-import request from "supertest";
-import { beforeEach, describe, expect, it } from "vitest";
-import { app } from "../../src/app.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getPrisma } from "../../src/prisma.js";
+import { hashPassword } from "../../src/auth.js";
+import { authenticatedAgent } from "./auth-helper.js";
 
-interface TestRequester {
-  id: number;
-}
-
-interface TestTicket {
-  id: number;
-  ticketNumber: string;
-}
-
+const password = "Regression Password 1";
 describe("Requester Ticket Detail API", () => {
-  const prisma = getPrisma();
-  let requesterA: TestRequester;
-  let requesterB: TestRequester;
-  let ticket: TestTicket;
-
+  const prisma = getPrisma(); let a: { id: number; email: string }; let b: { id: number; email: string }; let ticket: { id: number; ticketNumber: string }; let categoryId: number; let relatedSystemId: number;
   beforeEach(async () => {
-    await prisma.attachment.deleteMany({});
-    await prisma.ticket.deleteMany({});
-    await prisma.requesterUser.deleteMany({});
-    await prisma.category.deleteMany({});
-    await prisma.relatedSystem.deleteMany({});
-    const category = await prisma.category.create({ data: { name: "Hardware", isActive: true } });
-    const system = await prisma.relatedSystem.create({ data: { name: "Laptop", isActive: true } });
-    requesterA = await prisma.requesterUser.create({ data: { name: "Requester A", email: "detail-a@example.com", isActive: true } });
-    requesterB = await prisma.requesterUser.create({ data: { name: "Requester B", email: "detail-b@example.com", isActive: true } });
-    ticket = await prisma.ticket.create({ data: { ticketNumber: "TKT-2026-900001", requesterId: requesterA.id, categoryId: category.id, relatedSystemId: system.id, summary: "Private ticket", description: "A private ticket description.", requestedPriority: "MEDIUM", currentStatus: "NEW" } });
+    const suffix = Date.now().toString();
+    const category = await prisma.category.create({ data: { name: `Hardware ${suffix}`, isActive: true } }); const system = await prisma.relatedSystem.create({ data: { name: `Laptop ${suffix}`, isActive: true } }); categoryId = category.id; relatedSystemId = system.id;
+    a = await prisma.user.create({ data: { name: "Requester A", email: `detail-a-${Date.now()}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } });
+    b = await prisma.user.create({ data: { name: "Requester B", email: `detail-b-${Date.now()}@example.com`, role: "REQUESTER", isActive: true, mustChangePassword: false, passwordHash: await hashPassword(password) } });
+    ticket = await prisma.ticket.create({ data: { ticketNumber: `TKT-DETAIL-${suffix}`, requesterId: a.id, categoryId: category.id, relatedSystemId: system.id, summary: "Private ticket", description: "A private ticket description.", requestedPriority: "MEDIUM", currentStatus: "NEW" } });
   });
-
-  it("returns an owned ticket", async () => {
-    const response = await request(app).get(`/api/tickets/${ticket.id}`).set("X-Requester-Id", String(requesterA.id));
-    expect(response.status).toBe(200);
-    expect(response.body.ticketNumber).toBe(ticket.ticketNumber);
+  afterEach(async () => {
+    await prisma.ticket.deleteMany({ where: { id: ticket?.id } });
+    await prisma.user.deleteMany({ where: { id: { in: [a?.id, b?.id].filter(Boolean) as number[] } } });
+    await prisma.category.deleteMany({ where: { id: categoryId } });
+    await prisma.relatedSystem.deleteMany({ where: { id: relatedSystemId } });
   });
-
-  it("returns 403 without exposing another requester's ticket", async () => {
-    const response = await request(app).get(`/api/tickets/${ticket.id}`).set("X-Requester-Id", String(requesterB.id));
-    expect(response.status).toBe(403);
-    expect(response.body.ticketNumber).toBeUndefined();
-  });
-
-  it("returns 404 for a nonexistent ticket", async () => {
-    const response = await request(app).get("/api/tickets/999999").set("X-Requester-Id", String(requesterA.id));
-    expect(response.status).toBe(404);
-  });
+  it("returns an owned ticket", async () => { const { agent } = await authenticatedAgent(a.email, password); const response = await agent.get(`/api/tickets/${ticket.id}`); expect(response.status).toBe(200); expect(response.body.ticketNumber).toBe(ticket.ticketNumber); });
+  it("does not expose another requester's ticket", async () => { const { agent } = await authenticatedAgent(b.email, password); const response = await agent.get(`/api/tickets/${ticket.id}`); expect(response.status).toBe(404); expect(response.body.ticketNumber).toBeUndefined(); });
+  it("returns 404 for a nonexistent ticket", async () => { const { agent } = await authenticatedAgent(a.email, password); expect((await agent.get("/api/tickets/999999")).status).toBe(404); });
 });

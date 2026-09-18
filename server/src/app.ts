@@ -10,11 +10,17 @@ import { internalServerError } from "./internal-error.js";
 import ticketGetRouter from "./routes/tickets.get.js";
 import ticketDetailGetRouter from "./routes/tickets.detail.get.js";
 import ticketPostRouter from "./routes/tickets.post.js";
+import authRouter from "./routes/auth.js";
+import { attachAuth, authenticatedUserId, requireRequester } from "./auth.js";
 
 export const app = express();
 
-app.use(cors());
+const frontendOrigin = process.env.FRONTEND_ORIGIN ?? "http://localhost:5173";
+app.use(cors({ origin: frontendOrigin, credentials: true, exposedHeaders: ["X-CSRF-Token"] }));
 app.use(express.json());
+app.use(attachAuth);
+
+app.use(authRouter);
 
 app.use(ticketGetRouter);
 app.use(ticketDetailGetRouter);
@@ -56,23 +62,8 @@ function attachmentError(res: Response, status: number, code: string, message: s
 }
 
 async function getRequesterId(req: Request, res: Response): Promise<number | null> {
-  const header = req.header("X-Requester-Id");
-  if (!header || !/^\d+$/.test(header)) {
-    attachmentError(res, 400, "REQUESTER_CONTEXT_MISSING", "Missing or invalid X-Requester-Id header");
-    return null;
-  }
-
-  const requesterId = Number(header);
-  const requester = await getPrisma().requesterUser.findFirst({
-    where: { id: requesterId, isActive: true },
-    select: { id: true },
-  });
-  if (!requester) {
-    attachmentError(res, 400, "REQUESTER_INVALID", "Requester is unknown or inactive");
-    return null;
-  }
-
-  return requesterId;
+  if (!requireRequester(req, res)) return null;
+  return authenticatedUserId(req)!;
 }
 
 function attachmentExtensionMatches(file: Express.Multer.File) {
@@ -107,29 +98,6 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
     });
 
     res.status(200).json(categories);
-  } catch (error) {
-    return internalServerError(res, "DATABASE ERROR:", error);
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Issue 8 — Requester list
-// ---------------------------------------------------------------------------
-app.get("/api/requesters", async (_req: Request, res: Response) => {
-  try {
-    const prisma = getPrisma();
-
-    const requesters = await prisma.requesterUser.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
-    });
-
-    res.status(200).json(requesters);
   } catch (error) {
     return internalServerError(res, "DATABASE ERROR:", error);
   }
