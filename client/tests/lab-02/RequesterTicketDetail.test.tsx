@@ -116,11 +116,8 @@ describe("RequesterTicketDetail", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(
-      screen.queryByText(
-        /comments|internal notes|actions taken|change status/i,
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Comments" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Internal Notes" })).not.toBeInTheDocument();
 
     expect(fetchTicket).toHaveBeenCalledWith(
       42,

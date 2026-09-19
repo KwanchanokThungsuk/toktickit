@@ -10,7 +10,7 @@
 | #18 | feature/18-authentication | Commented and approved |
 | #19 | feature/19-authorization-requester | Commented and approved |
 | #20 | feature/20-staff-ticket-queue | Approved |
-| #21 | feature/21-staff-ticket-operations |  |
+| #21 | feature/21-staff-ticket-operations | Commented and approved |
 | #22 | feature/22-comments-internal-notes |  |
 | #23 | feature/23-admin-user-management |  |
 | #24 | feature/24-lab3-testing-e2e |  |
@@ -46,8 +46,22 @@ fixed. pls recheck jubb🫪
 - How I responded: merge
 
 **feature/21-staff-ticket-operations**
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: The priority/status workflow looks aligned overall. Before approval, could you confirm that the status transition matrix implemented here matches the approved Lab 3 specification, and clarify how Administrator users can update IT Priority? The Lab 3 rules permit IT Priority changes by IT Staff or Administrator, while the current Staff Ticket Detail UI is IT Staff-only.
+- How I responded: Thanks for the review. I confirmed that the implemented status transition matrix matches the approved Lab 3 specification:
+
+    - NEW → OPEN, CANCELLED
+    - OPEN → IN_PROGRESS, WAITING_FOR_REQUESTER, CANCELLED
+    - IN_PROGRESS → WAITING_FOR_REQUESTER, RESOLVED, CANCELLED
+    - WAITING_FOR_REQUESTER → IN_PROGRESS, RESOLVED, CANCELLED
+    - RESOLVED → CLOSED, REOPENED
+    - CLOSED → REOPENED
+    - REOPENED → IN_PROGRESS, WAITING_FOR_REQUESTER, CANCELLED
+    - CANCELLED → REOPENED
+        For Administrator access, the backend already allows both IT Staff and Administrator to update itPriority, while only IT Staff can update ticket status.
+
+        The current Staff Ticket Detail UI is intentionally IT Staff-only. The Administrator UI/context for ticket review is planned under Issue #24, so the Admin priority action will be exposed there rather than through the current Staff-only screen.
+
+        Therefore, the authorization is enforced on the backend in this issue, while the Administrator-facing UI is deferred to Issue #24.
 
 **feature/22-comments-internal-notes**
 - Reviewer comment I received: 

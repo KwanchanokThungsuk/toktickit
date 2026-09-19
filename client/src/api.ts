@@ -135,12 +135,43 @@ export interface StaffTicketDetail extends StaffTicket {
   eligibleOwners: Array<{ id: number; name: string; email: string; role: string }>;
   requesterResolutionIndicatedAt: string | null;
   requesterResolutionIndicatedByUserId: number | null;
+  publicComments: TicketComment[];
+  internalNotes: InternalNote[];
 }
+
+export interface TicketComment { id: number; ticketId: number; body: string; createdAt: string; author: { id: number; name: string; role: string } }
+export interface InternalNote extends TicketComment {}
 
 export async function fetchStaffTicketDetail(ticketId: number): Promise<StaffTicketDetail> {
   const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}`, { credentials: "include" });
   if (!response.ok) throw new Error("Unable to load ticket details");
   return response.json();
+}
+
+export async function fetchTicketComments(ticketId: number): Promise<TicketComment[]> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/comments`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load comments");
+  return response.json();
+}
+
+export async function addTicketComment(ticketId: number, body: string): Promise<TicketComment> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/comments`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ body }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message ?? "Unable to add comment");
+  return result;
+}
+
+export async function fetchInternalNotes(ticketId: number): Promise<InternalNote[]> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load internal notes");
+  return response.json();
+}
+
+export async function addInternalNote(ticketId: number, body: string): Promise<InternalNote> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ body }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message ?? "Unable to add internal note");
+  return result;
 }
 
 export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null) {

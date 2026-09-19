@@ -26,6 +26,7 @@ export interface TicketDetail {
   requesterResolutionIndicatedAt?: string | null;
   createdAt: string;
   attachments: TicketDetailAttachment[];
+  publicComments?: Array<{ id: number; ticketId: number; body: string; createdAt: string; author: { id: number; name: string; role: string } }>;
 }
 
 export async function fetchTicket(

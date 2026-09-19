@@ -37,6 +37,7 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
             removedReason: true,
           },
         },
+        publicComments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } },
       },
     });
 

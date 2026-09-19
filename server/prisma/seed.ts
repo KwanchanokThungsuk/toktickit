@@ -162,6 +162,25 @@ async function main() {
       { ticketNumber: "TKT-2026-000003", requesterId: seededRequesters[0].id, summary: "VPN access request", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "IN_PROGRESS" as const, assignedToUserId: seededStaff[1].id },
     ];
     for (const ticket of queueTickets) await prisma.ticket.upsert({ where: { ticketNumber: ticket.ticketNumber }, update: ticket, create: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+
+    const seededTickets = await prisma.ticket.findMany({
+      where: { ticketNumber: { in: queueTickets.map(({ ticketNumber }) => ticketNumber) } },
+      orderBy: { ticketNumber: "asc" },
+    });
+    const publicAuthor = seededRequesters[0];
+    const staffAuthor = seededStaff[0];
+    const publicTicket = seededTickets.find((ticket) => ticket.ticketNumber === "TKT-2026-000001");
+    const noteTicket = seededTickets.find((ticket) => ticket.ticketNumber === "TKT-2026-000003");
+    if (publicTicket && noteTicket) {
+      const publicBody = "I have tested the suggested solution and can access email again.";
+      const noteBody = "Investigated the VPN configuration and confirmed the staff assignment.";
+      if (!await prisma.publicComment.findFirst({ where: { ticketId: publicTicket.id, authorId: publicAuthor.id, body: publicBody } })) {
+        await prisma.publicComment.create({ data: { ticketId: publicTicket.id, authorId: publicAuthor.id, body: publicBody } });
+      }
+      if (!await prisma.internalNote.findFirst({ where: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } })) {
+        await prisma.internalNote.create({ data: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } });
+      }
+    }
   }
 
   console.log("Seeding completed successfully.");
