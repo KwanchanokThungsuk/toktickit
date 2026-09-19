@@ -271,6 +271,42 @@
   margin: 0.25rem 0 0;
 }
 
+.ticket-detail__workflow-control dd {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ticket-detail__workflow-control select {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--zg-border);
+  border-radius: 0.375rem;
+  background: var(--zg-surface);
+  color: var(--zg-text);
+  font: inherit;
+}
+
+.ticket-detail__workflow-control select:focus {
+  outline: none;
+  border-color: var(--zg-secondary);
+  box-shadow: 0 0 0 0.1875rem var(--zg-focus-ring);
+}
+
+.ticket-detail__workflow-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.ticket-detail__workflow-actions .btn {
+  min-width: 8.5rem;
+  min-height: 2.5rem;
+  white-space: nowrap;
+}
+
 .ticket-detail__wide {
   grid-column: 1 / -1;
 }
@@ -462,6 +498,17 @@
 
   .ticket-detail__grid {
     grid-template-columns: 1fr;
+  }
+
+  .ticket-detail__workflow-control dd {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-detail__workflow-control select,
+  .ticket-detail__workflow-actions,
+  .ticket-detail__workflow-actions .btn {
+    width: 100%;
   }
 
   .ticket-detail__attachments li,
