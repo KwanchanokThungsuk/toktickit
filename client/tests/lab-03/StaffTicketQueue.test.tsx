@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import StaffTicketQueue from "../../src/components/StaffTicketQueue";
 import App from "../../src/App";
@@ -23,12 +23,57 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
   it("renders loading, empty, error, and pagination states", async () => { vi.mocked(fetchStaffTickets).mockImplementation(() => new Promise(() => undefined)); render(<StaffTicketQueue />); expect(screen.getByRole("status")).toHaveTextContent("Loading"); });
   it("renders empty and error responses", async () => { vi.mocked(fetchStaffTickets).mockResolvedValueOnce({ ...data, items: [], totalItems: 0, totalPages: 0 }); render(<StaffTicketQueue />); expect(await screen.findByText("No tickets found.")).toBeInTheDocument(); vi.mocked(fetchStaffTickets).mockRejectedValueOnce(new Error("Queue unavailable")); render(<StaffTicketQueue />); expect(await screen.findByRole("alert")).toHaveTextContent("Queue unavailable"); });
   it("renders pagination controls", async () => { vi.mocked(fetchStaffTickets).mockResolvedValue({ ...data, totalPages: 2 }); render(<StaffTicketQueue />); expect(await screen.findByRole("button", { name: "Next" })).toBeInTheDocument(); });
-  it("shows Access denied for direct Queue access by Requesters and Administrators", async () => {
+  it("normalizes stale role routes after authentication", async () => {
     window.location.hash = "#/staff/tickets";
-    for (const role of ["REQUESTER", "ADMINISTRATOR"] as const) {
-      vi.mocked(currentUser).mockResolvedValue({ id: 1, name: "User", email: "user@example.com", role, mustChangePassword: false });
-      render(<App />);
-      expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
-    }
+
+    vi.mocked(currentUser).mockResolvedValue({
+      id: 1,
+      name: "Requester",
+      email: "requester@example.com",
+      role: "REQUESTER",
+      mustChangePassword: false,
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("link", { name: "Create Ticket" }),
+    ).toBeInTheDocument();
+
+    expect(window.location.hash).toBe("#/tickets");
+
+    // Remove the Requester App instance before testing IT Staff.
+    cleanup();
+
+    window.location.hash = "#/tickets";
+
+    vi.mocked(currentUser).mockResolvedValue({
+      id: 2,
+      name: "Staff",
+      email: "staff@example.com",
+      role: "IT_STAFF",
+      mustChangePassword: false,
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("link", { name: "Ticket Queue" }),
+    ).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(window.location.hash).toBe("#/staff/tickets"),
+    );
+
+    cleanup();
+  });
+
+  it("keeps direct unauthorized Administrator access safe", async () => {
+    window.location.hash = "#/staff/tickets";
+    cleanup();
+    vi.mocked(currentUser).mockResolvedValue({ id: 3, name: "Admin", email: "admin@example.com", role: "ADMINISTRATOR", mustChangePassword: false });
+    render(<App />);
+    await waitFor(() => expect(window.location.hash).toBe("#/access-denied"));
+    expect(screen.getByText("This area is not available for your account.")).toBeInTheDocument();
   });
 });

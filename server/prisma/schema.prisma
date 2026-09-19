@@ -54,6 +54,7 @@ model User {
   ownedTickets        Ticket[] @relation("TicketOwner")
   uploadedAttachments Attachment[] @relation("AttachmentUploader")
   removedAttachments  Attachment[] @relation("AttachmentRemover")
+  resolutionIndications Ticket[] @relation("RequesterResolutionIndication")
 }
 
 model Category {
@@ -88,6 +89,9 @@ model Ticket {
   currentStatus     TicketStatus    @default(NEW)
   assignedToUserId  Int?
   assignedTo        User?           @relation("TicketOwner", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  requesterResolutionIndicatedAt DateTime?
+  requesterResolutionIndicatedByUserId Int?
+  requesterResolutionIndicatedByUser User? @relation("RequesterResolutionIndication", fields: [requesterResolutionIndicatedByUserId], references: [id], onDelete: SetNull)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   attachments       Attachment[]
