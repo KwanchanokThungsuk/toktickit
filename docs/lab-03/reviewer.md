@@ -36,8 +36,10 @@
 Added Logout and enforced REQUESTER-only authorization for requester ticket/attachment APIs. 🤤
 
 **feature/19-authorization-requester**
-- Reviewer comment I received: 
+- Reviewer comment I received: The Ticket Queue status filter does not include all Lab 3 ticket statuses. StaffTicketStatus and the Status dropdown currently only include NEW, OPEN, IN_PROGRESS, RESOLVED, and CLOSED, while Lab 3 requires WAITING_FOR_REQUESTER, REOPENED, and CANCELLED as well.
+Please update the Queue status type/filter to support all required Lab 3 statuses and add/update the corresponding tests.
 - How I responded: 
+fixed. pls recheck jubb🫪
 
 **feature/20-staff-ticket-queue**
 - Reviewer comment I received: 
@@ -80,3 +82,26 @@ I reviewed the other parts of the Lab 3 specification, API specification, UI spe
 - My comment: I found one blocking issue regarding AC-09: the PR does not include the migration-regression.integration.test.ts referenced by docs/lab-03/tests.md for MIG-01 and MIG-02.
 Please add the referenced migration/seed regression test, or update the test documentation to reflect the actual test evidence. The AC-09 coverage should demonstrate preservation of existing IDs/ownership/history, Ticket and Attachment relationships, itPriority backfill, required seed data, and safe/idempotent seed reruns without duplicate dat
 - Partner's response: Already add the migration.integration.test.ts. Pls recheck the PR.
+
+**feature/15-auth-foundation**
+- My comment: I reviewed the authentication flow and found a few things that need to be updated:
+
+    - Requester identity
+The client is still sending requesterId in the ticket/attachment flows. According to the Lab 3 spec, requester identity should come from the authenticated session and should not be provided by the client. Could you please update this flow to use the logged-in user's ID instead?
+    - Legacy requester selection
+The legacy requester-selection flow is still active in the client (RequesterContext, RequesterSelection, and fetchDevelopmentRequesters), and requester screens still use requesterId. Since Lab 3 replaces the Development Requester selector with authenticated identity, could you please remove or replace this flow so the requester is determined by the logged-in user?
+    - Change Password validation
+The Change Password UI currently says “At least 8 characters,” but the Lab 3 spec requires passwords to be 12–128 characters. Could you please update the client-side validation and displayed requirement to match the spec?
+- Partner's response: fixed it. Please review again kub.
+
+****
+- My comment: 
+- Partner's response: 
+
+****
+- My comment: 
+- Partner's response: 
+
+****
+- My comment: 
+- Partner's response: 

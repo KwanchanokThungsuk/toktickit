@@ -8,6 +8,7 @@
   } from "../api.detail";
   import {
     downloadAttachment,
+    indicateProblemResolved,
     removeAttachment,
     uploadAttachment,
     type AttachmentMetadata,
@@ -61,6 +62,8 @@
       useState<TicketDetail["attachments"][number] | null>(null);
     const [removalReason, setRemovalReason] = useState("");
     const [isRemoving, setIsRemoving] = useState(false);
+    const [resolutionError, setResolutionError] = useState("");
+    const [resolutionSubmitting, setResolutionSubmitting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const removalReasonRef = useRef<HTMLTextAreaElement>(null);
@@ -297,6 +300,17 @@
       }
     }
 
+    async function handleProblemResolved() {
+      setResolutionSubmitting(true);
+      setResolutionError("");
+      try {
+        const updated = await indicateProblemResolved(ticketId);
+        setTicket((current) => current ? { ...current, requesterResolutionIndicatedAt: updated.requesterResolutionIndicatedAt } : current);
+      } catch (reason) {
+        setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
+      } finally { setResolutionSubmitting(false); }
+    }
+
     function closeRemovalDialog() {
       if (isRemoving) {
         return;
@@ -418,6 +432,13 @@
                 </Badge>
               </dd>
             </div>
+
+            {ticket.currentStatus === "IN_PROGRESS" || ticket.currentStatus === "WAITING_FOR_REQUESTER" ? (
+              <div className="ticket-detail__wide">
+                {ticket.requesterResolutionIndicatedAt ? <p className="text-success">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
+                {resolutionError ? <p className="text-danger">{resolutionError}</p> : null}
+              </div>
+            ) : null}
 
             <div className="ticket-detail__wide">
               <dt>Summary</dt>

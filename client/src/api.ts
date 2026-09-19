@@ -126,6 +126,44 @@ export async function fetchTickets(options: FetchTicketsOptions): Promise<Ticket
   return res.json();
 }
 
+export interface StaffTicketDetail extends StaffTicket {
+  description: string;
+  requester: { id: number; name: string; email: string };
+  category: { id: number; name: string };
+  relatedSystem: { id: number; name: string };
+  attachments: AttachmentMetadata[];
+  eligibleOwners: Array<{ id: number; name: string; email: string; role: string }>;
+  requesterResolutionIndicatedAt: string | null;
+  requesterResolutionIndicatedByUserId: number | null;
+}
+
+export async function fetchStaffTicketDetail(ticketId: number): Promise<StaffTicketDetail> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load ticket details");
+  return response.json();
+}
+
+export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/owner`, {
+    method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) },
+    body: JSON.stringify({ ownerId }),
+  });
+  if (!response.ok) throw new Error("Unable to update ticket owner");
+  return response.json();
+}
+
+export async function claimStaffTicket(ticketId: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: await csrfHeader() });
+  if (!response.ok) throw new Error("Unable to claim ticket");
+  return response.json();
+}
+
+export async function indicateProblemResolved(ticketId: number) {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: await csrfHeader() });
+  if (!response.ok) throw new Error("Unable to indicate problem resolution");
+  return response.json();
+}
+
 export async function createTicket(payload: CreateTicketPayload) {
   const token = await csrfHeader();
   const res = await fetch(`${API_URL}/api/tickets`, {
