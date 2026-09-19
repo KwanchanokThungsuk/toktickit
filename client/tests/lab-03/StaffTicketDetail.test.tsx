@@ -1,11 +1,11 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StaffTicketDetail from "../../src/components/StaffTicketDetail";
-import { claimStaffTicket, fetchStaffTicketDetail, updateStaffTicketOwner } from "../../src/api";
+import { claimStaffTicket, fetchStaffTicketDetail, updateStaffTicketOwner, updateStaffTicketPriority, updateStaffTicketStatus } from "../../src/api";
 
 vi.mock("../../src/api", async () => {
   const actual = await vi.importActual<typeof import("../../src/api")>("../../src/api");
-  return { ...actual, claimStaffTicket: vi.fn(), fetchStaffTicketDetail: vi.fn(), updateStaffTicketOwner: vi.fn() };
+  return { ...actual, claimStaffTicket: vi.fn(), fetchStaffTicketDetail: vi.fn(), updateStaffTicketOwner: vi.fn(), updateStaffTicketPriority: vi.fn(), updateStaffTicketStatus: vi.fn() };
 });
 
 const detail = {
@@ -13,7 +13,12 @@ const detail = {
 } as any;
 
 describe("StaffTicketDetail", () => {
-  beforeEach(() => { vi.clearAllMocks(); vi.mocked(fetchStaffTicketDetail).mockResolvedValue(detail); vi.mocked(claimStaffTicket).mockResolvedValue({ id: 9, name: "Current Staff", email: "staff@example.com" }); vi.mocked(updateStaffTicketOwner).mockResolvedValue({ id: 4, name: "Staff B", email: "b@example.com" }); });
+  beforeEach(() => { vi.clearAllMocks(); vi.mocked(fetchStaffTicketDetail).mockResolvedValue(detail); vi.mocked(claimStaffTicket).mockResolvedValue({ id: 9, name: "Current Staff", email: "staff@example.com" }); vi.mocked(updateStaffTicketOwner).mockResolvedValue({ id: 4, name: "Staff B", email: "b@example.com" }); vi.mocked(updateStaffTicketPriority).mockResolvedValue({ id: 7, requestedPriority: "HIGH", itPriority: "LOW" }); vi.mocked(updateStaffTicketStatus).mockResolvedValue({ id: 7, currentStatus: "OPEN" }); });
   it("renders detail fields and claim/reassign controls", async () => { render(<StaffTicketDetail ticketId={7} />); expect(await screen.findByText("TKT-7")).toBeInTheDocument(); expect(screen.getByText(/Jan 1, 2026/)).toBeInTheDocument(); expect(screen.getByText(/Jan 2, 2026/)).toBeInTheDocument(); expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0); expect(screen.getByRole("button", { name: "Claim ticket" })).toBeInTheDocument(); expect(screen.getByLabelText("Ticket owner")).toBeInTheDocument(); });
   it("claims and reassigns through the authenticated API helpers", async () => { render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.click(screen.getByRole("button", { name: "Claim ticket" })); await waitFor(() => expect(claimStaffTicket).toHaveBeenCalledWith(7)); fireEvent.change(screen.getByLabelText("Ticket owner"), { target: { value: "4" } }); fireEvent.click(screen.getByRole("button", { name: "Save owner" })); await waitFor(() => expect(updateStaffTicketOwner).toHaveBeenCalledWith(7, 4)); });
+  it("updates priority and status through authenticated helpers", async () => { render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "LOW" } }); fireEvent.click(screen.getByRole("button", { name: "Save priority" })); await waitFor(() => expect(updateStaffTicketPriority).toHaveBeenCalledWith(7, "LOW")); fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: "OPEN" } }); fireEvent.click(screen.getByRole("button", { name: "Save status" })); await waitFor(() => expect(updateStaffTicketStatus).toHaveBeenCalledWith(7, "OPEN")); });
+  it.each(["RESOLVED", "CLOSED", "CANCELLED"])("requires confirmation before %s", async (status) => { vi.spyOn(window, "confirm").mockReturnValue(false); render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: status } }); fireEvent.click(screen.getByRole("button", { name: "Save status" })); await waitFor(() => expect(updateStaffTicketStatus).not.toHaveBeenCalled()); vi.restoreAllMocks(); });
+  it("offers only transitions allowed from the current status", async () => { render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); const options = Array.from(screen.getByLabelText("Ticket status").querySelectorAll("option")).map((option) => option.textContent); expect(options).toEqual(["NEW", "OPEN", "CANCELLED"]); });
+  it("updates displayed priority and status after successful mutations", async () => { render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "LOW" } }); fireEvent.click(screen.getByRole("button", { name: "Save priority" })); await waitFor(() => expect(screen.getByLabelText("IT Priority")).toHaveValue("LOW")); fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: "OPEN" } }); fireEvent.click(screen.getByRole("button", { name: "Save status" })); await waitFor(() => expect(screen.getByLabelText("Ticket status")).toHaveValue("OPEN")); });
+  it("surfaces mutation errors", async () => { vi.mocked(updateStaffTicketPriority).mockRejectedValueOnce(new Error("Priority update failed")); render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "LOW" } }); fireEvent.click(screen.getByRole("button", { name: "Save priority" })); expect(await screen.findByText("Priority update failed")).toBeInTheDocument(); });
 });

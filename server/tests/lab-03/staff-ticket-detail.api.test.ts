@@ -98,4 +98,70 @@ describe("Issue #20 staff ticket detail and ownership", () => {
     const duplicate = await agent.post(`/api/tickets/${ticketId}/problem-resolved`).set("X-CSRF-Token", csrfToken);
     expect(duplicate.status).toBe(409);
   });
+
+  it("updates IT Priority without changing Requested Priority", async () => {
+    const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
+    const response = await agent.patch(`/api/staff/tickets/${ticketId}/priority`).set("X-CSRF-Token", csrfToken).send({ itPriority: "HIGH" });
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id: ticketId, requestedPriority: "MEDIUM", itPriority: "HIGH" });
+    expect((await prisma.ticket.findUnique({ where: { id: ticketId }, select: { requestedPriority: true, itPriority: true } }))).toEqual({ requestedPriority: "MEDIUM", itPriority: "HIGH" });
+  });
+
+  it("allows an Administrator to update IT Priority but not status", async () => {
+    const administrator = await authenticatedAgent(admin.email, password);
+    const priority = await administrator.agent.patch(`/api/staff/tickets/${ticketId}/priority`).set("X-CSRF-Token", administrator.csrfToken).send({ itPriority: "LOW" });
+    expect(priority.status).toBe(200);
+    const status = await administrator.agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", administrator.csrfToken).send({ status: "OPEN" });
+    expect(status.status).toBe(403);
+  });
+
+  it("enforces the status transition matrix and rejects invalid values", async () => {
+    const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
+    await prisma.ticket.update({ where: { id: ticketId }, data: { currentStatus: "NEW" } });
+    const valid = await agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", csrfToken).send({ status: "OPEN" });
+    expect(valid.status).toBe(200);
+    const invalid = await agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", csrfToken).send({ status: "CLOSED" });
+    expect(invalid.status).toBe(409);
+    const unsupported = await agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", csrfToken).send({ status: "NOT_A_STATUS" });
+    expect(unsupported.status).toBe(422);
+    expect((await prisma.ticket.findUnique({ where: { id: ticketId }, select: { currentStatus: true } }))?.currentStatus).toBe("OPEN");
+  });
+
+  it("covers every permitted status transition", async () => {
+    const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
+    const transitions: Array<[string, string]> = [
+      ["NEW", "OPEN"], ["NEW", "CANCELLED"],
+      ["OPEN", "IN_PROGRESS"], ["OPEN", "WAITING_FOR_REQUESTER"], ["OPEN", "CANCELLED"],
+      ["IN_PROGRESS", "WAITING_FOR_REQUESTER"], ["IN_PROGRESS", "RESOLVED"], ["IN_PROGRESS", "CANCELLED"],
+      ["WAITING_FOR_REQUESTER", "IN_PROGRESS"], ["WAITING_FOR_REQUESTER", "RESOLVED"], ["WAITING_FOR_REQUESTER", "CANCELLED"],
+      ["RESOLVED", "CLOSED"], ["RESOLVED", "REOPENED"], ["CLOSED", "REOPENED"],
+      ["REOPENED", "IN_PROGRESS"], ["REOPENED", "WAITING_FOR_REQUESTER"], ["REOPENED", "CANCELLED"],
+      ["CANCELLED", "REOPENED"],
+    ];
+    for (const [currentStatus, nextStatus] of transitions) {
+      await prisma.ticket.update({ where: { id: ticketId }, data: { currentStatus: currentStatus as never } });
+      const response = await agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", csrfToken).send({ status: nextStatus });
+      expect(response.status, `${currentStatus} -> ${nextStatus}`).toBe(200);
+      expect(response.body.currentStatus).toBe(nextStatus);
+    }
+  });
+
+  it("covers priority and status authorization and validation boundaries", async () => {
+    const requesterAgent = await authenticatedAgent(requester.email, password);
+    const administratorAgent = await authenticatedAgent(admin.email, password);
+    const staffAgent = await authenticatedAgent(staff.email, password);
+    const before = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { itPriority: true, requestedPriority: true, currentStatus: true } });
+    expect((await request(app).patch(`/api/staff/tickets/${ticketId}/priority`).send({ itPriority: "HIGH" })).status).toBe(401);
+    expect((await request(app).patch(`/api/staff/tickets/${ticketId}/status`).send({ status: "OPEN" })).status).toBe(401);
+    expect((await requesterAgent.agent.patch(`/api/staff/tickets/${ticketId}/priority`).set("X-CSRF-Token", requesterAgent.csrfToken).send({ itPriority: "HIGH" })).status).toBe(403);
+    expect((await requesterAgent.agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", requesterAgent.csrfToken).send({ status: "OPEN" })).status).toBe(403);
+    expect((await administratorAgent.agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", administratorAgent.csrfToken).send({ status: "OPEN" })).status).toBe(403);
+    expect((await staffAgent.agent.patch(`/api/staff/tickets/${ticketId}/priority`).set("X-CSRF-Token", staffAgent.csrfToken).send({ itPriority: "INVALID" })).status).toBe(422);
+    expect((await staffAgent.agent.patch(`/api/staff/tickets/99999999/priority`).set("X-CSRF-Token", staffAgent.csrfToken).send({ itPriority: "HIGH" })).status).toBe(404);
+    expect((await staffAgent.agent.patch(`/api/staff/tickets/99999999/status`).set("X-CSRF-Token", staffAgent.csrfToken).send({ status: "OPEN" })).status).toBe(404);
+    await prisma.ticket.update({ where: { id: ticketId }, data: { currentStatus: "NEW", itPriority: before.itPriority } });
+    const invalidTransition = await staffAgent.agent.patch(`/api/staff/tickets/${ticketId}/status`).set("X-CSRF-Token", staffAgent.csrfToken).send({ status: "RESOLVED" });
+    expect(invalidTransition.status).toBe(409);
+    expect(await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { currentStatus: true, itPriority: true } })).toEqual({ currentStatus: "NEW", itPriority: before.itPriority });
+  });
 });

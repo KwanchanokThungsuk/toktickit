@@ -158,6 +158,20 @@ export async function claimStaffTicket(ticketId: number) {
   return response.json();
 }
 
+export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority">;
+}
+
+export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update Ticket status");
+  return body as Pick<StaffTicketDetail, "id" | "currentStatus">;
+}
+
 export async function indicateProblemResolved(ticketId: number) {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: await csrfHeader() });
   if (!response.ok) throw new Error("Unable to indicate problem resolution");
