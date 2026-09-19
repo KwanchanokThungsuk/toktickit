@@ -11,7 +11,7 @@ router.get("/api/staff/tickets/:id", async (req: Request, res: Response) => {
   try {
     const prisma = getPrisma();
     const [ticket, eligibleOwners] = await Promise.all([
-      prisma.ticket.findUnique({ where: { id }, include: { requester: { select: { id: true, name: true, email: true } }, category: true, relatedSystem: true, assignedTo: owner, attachments: { select: { id: true, originalFilename: true, contentType: true, fileSize: true, uploadedAt: true, isRemoved: true, removedAt: true, removedReason: true } } } }),
+      prisma.ticket.findUnique({ where: { id }, include: { requester: { select: { id: true, name: true, email: true } }, category: true, relatedSystem: true, assignedTo: owner, attachments: { select: { id: true, originalFilename: true, contentType: true, fileSize: true, uploadedAt: true, isRemoved: true, removedAt: true, removedReason: true } }, publicComments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } }, internalNotes: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } } } }),
       prisma.user.findMany({ where: { isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } }),
     ]);
     if (!ticket) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found" } });

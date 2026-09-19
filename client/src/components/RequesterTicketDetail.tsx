@@ -14,6 +14,7 @@
     type AttachmentMetadata,
   } from "../api";
   import type { BadgeVariant } from "./Badge";
+  import { PublicComments } from "./CommunicationPanel";
   const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
   interface RequesterTicketDetailProps {
@@ -595,6 +596,8 @@
             </ul>
           )}
         </section>
+
+        <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
 
         {removingAttachment ? (
           <div
