@@ -15,6 +15,7 @@ import staffTicketDetailRouter from "./routes/staff-ticket-detail.js";
 import commentsNotesRouter from "./routes/comments-notes.js";
 import authRouter from "./routes/auth.js";
 import { attachAuth, authenticatedUserId, requireRequester } from "./auth.js";
+import userManagementRouter from "./user-management.js";
 
 export const app = express();
 
@@ -31,6 +32,7 @@ app.use(ticketPostRouter);
 app.use(staffTicketsRouter);
 app.use(staffTicketDetailRouter);
 app.use(commentsNotesRouter);
+app.use(userManagementRouter);
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const MAX_ACTIVE_ATTACHMENTS = 5;

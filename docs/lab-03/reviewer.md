@@ -64,8 +64,8 @@ fixed. pls recheck jubb🫪
         Therefore, the authorization is enforced on the backend in this issue, while the Administrator-facing UI is deferred to Issue #24.
 
 **feature/22-comments-internal-notes**
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: Public Comments and Internal Notes follow the required visibility rules, requester access to Internal Notes is protected, author/timestamp handling is backend-controlled, and the 2,000-character validation, Unicode handling, draft preservation, and responsive UI are covered with tests. Approved.
+- How I responded: merged
 
 **feature/23-admin-user-management**
 - Reviewer comment I received: 
@@ -112,6 +112,11 @@ The Change Password UI currently says “At least 8 characters,” but the Lab 3
 - My comment: The implementation appears aligned with the documented queue requirements. I only noticed one clarification point: the PR description states 15 server tests and 6 client tests, but the current staff-queue.api.test.ts and StaffTicketQueue.test.tsx contain 3 and 2 test cases respectively. If 15/6 refers to assertions or other coverage, could you clarify the counting? Otherwise, please update the test counts.
 - Partner's response: Clarified the counts. The 15 server tests and 6 client tests refer to the complete Lab 3 test run: 5 server test files / 15 cases and 4 client test files / 6 cases. Issue 5 itself adds 3 server cases in staff-queue.api.test.ts and 2 client cases in StaffTicketQueue.test.tsx.
 
+**feature/18-staff-ticket-operations**
+- My comment: Overall, the implementation looks good and the other reviewed parts are okay. I only found one issue with the status transition workflow:
+        The specification requires CANCELLED → REOPENED to be an allowed transition, but the current implementation has CANCELLED: [].
+- Partner's response: I have fixed the issue. Pls review again
+
 ****
 - My comment: 
 - Partner's response: 
@@ -119,3 +124,8 @@ The Change Password UI currently says “At least 8 characters,” but the Lab 3
 ****
 - My comment: 
 - Partner's response: 
+
+****
+- My comment: 
+- Partner's response: 
+
