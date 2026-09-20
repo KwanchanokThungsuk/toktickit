@@ -56,3 +56,6 @@ export function requireStaff(req: Request, res: Response) {
 export function requireCsrf(req: Request, res: Response) { const found = getSession(req); const token = req.header("X-CSRF-Token"); if (!found || !token || token !== found.session.csrfToken) { res.status(403).json({ error: { code: "CSRF_INVALID", message: "Invalid CSRF token." } }); return false; } return true; }
 export function authenticatedUserId(req: Request): number | null { return req.auth?.userId ?? null; }
 export function sessionForTests() { return sessions; }
+export function revokeUserSessions(userId: number) {
+  for (const [id, session] of sessions) if (session.userId === userId) sessions.delete(id);
+}

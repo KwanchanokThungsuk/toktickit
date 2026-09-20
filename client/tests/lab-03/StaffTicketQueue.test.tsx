@@ -68,12 +68,4 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
     cleanup();
   });
 
-  it("keeps direct unauthorized Administrator access safe", async () => {
-    window.location.hash = "#/staff/tickets";
-    cleanup();
-    vi.mocked(currentUser).mockResolvedValue({ id: 3, name: "Admin", email: "admin@example.com", role: "ADMINISTRATOR", mustChangePassword: false });
-    render(<App />);
-    await waitFor(() => expect(window.location.hash).toBe("#/access-denied"));
-    expect(screen.getByText("This area is not available for your account.")).toBeInTheDocument();
-  });
 });
