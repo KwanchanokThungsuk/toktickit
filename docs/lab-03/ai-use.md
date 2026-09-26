@@ -12,7 +12,7 @@
 | 5 | Asked Codex to implement the IT Staff Ticket Queue according to Issue #19 requirements, including API, RBAC, search/filter/sort/pagination, UI, and tests. | Reviewed the implementation, tested the Queue API/UI, fixed documented gaps, and verified the required behavior. |
 | 6 | Asked Codex to implement a genuine migration regression test for pre-existing Lab 2 Ticket/Attachment data. | Added an isolated temporary PostgreSQL migration test that applies real Lab 2 → Lab 3 migrations and verifies IDs, data, ownership, and relationships are preserved. |
 | 7 | Asked Codex to audit the complete Issue #20 implementation against the Lab 3 specification, API/UI specifications, acceptance criteria, and test requirements, then fix any missing requirements and add the necessary tests. | Reviewed the audit findings and asked Codex to fix the missing Created Date and Last Updated fields and add missing negative test cases. I then ran the frontend and backend tests and checked the implementation again to confirm that it matched the documented requirements. |
-| 8 |  |  |
+| 8 | Asked Codex to implement Issue #24 for Administrator Ticket Inspection and review the implementation against the Lab 3 specification, including Administrator permissions for Ticket details, Public Comments, Internal Notes, and IT Priority. | Used the AI result as a starting point, then checked it against the specification because I was initially unsure whether the Administrator should have a separate Ticket Review page. I confirmed that the existing /tickets/:id route could be used for the Administrator's read-only inspection context. During testing, I found that Internal Notes were not actually being loaded in the UI even though the feature appeared to be implemented. I asked Codex to fix this and add the missing API integration tests, then reviewed the changes and verified the Administrator permission boundaries. |
 
 
 
@@ -24,5 +24,7 @@
     ใน issue 19 นี้เป็นการทำในส่วนของ staff queue ซึ่งเราก็ได้ใช้ codex ช่วยเขียน โดยก็เจอปัญหาเกี่ยวกับการเขียน Ui หน้าบ้านที่อาจเขียนมาเหมือนเป็ร HTML เปลื่อย ๆ ไม่มี css ตรงนี้เราก็ต้อง check หน้าเว็ป ทั้งงยังจเอ ปัญหาเกี่ยวกับการ test เรื่อง migration ที่ต้อง cjeck ขอมูลว่ามาไหม ตรงนี้ในตอนแรกก็ไม่มี ต้องคอยตรวจสอบให้ตรงกับ Specification.md ที่เราทำไว้
 
     ใน Issue 20 เป็นการเพิ่ม ticket staff detail ให้ staff สามารถดูได้โดยรวมแล้วเราใช้ codex ให้เขียนในส่วนของ api ui test เจอปัญหาเรื่องการเขียน test ไม่ครบตาม docs หรือ test.md ที่เรากำหนดไว้ซึ่งเรา ก็ได้ prompt ให้ ai กลับไปอ่าน docs เพื่อมาอก้ไขให้จรงกับที่เราเขียนไว้
+
+    ใน Issue 24 นี้ได้มีการสร้างให้ admin สามารถ เห็น ticket detail ได้ซึ่งตรงนี้เรามีก่ีใช้ AI เข้ามาช่วยสร้าง เพราะในตอนแรกเรางงว่า คือ UI ของ admin ต้องมีหน้าสำหรับดู ticket detail ไหมแต่ว่ามันจะขัดกับ specification file ที่เราเขียนไว้ซึ่งก้ใช้ Ai เข้าว่าช่วยคิดตอนนี้และสรุปได้ว่าเราจะทำให้ admin เห็นโดยการใช้ route ของ ticket นั้น ๆ แล้วก็มรปัญหาตอนที่ให้ codex ช่วยเขียนโค้ด เรื่อง Admin internal noes ยังโหลดไม่ได้จริง  คือเหมือนไม่ได้เพิ่ม internal note ใน prisma include  ตรงนี้ก็ต้อง check code หลังจากที่ให้ AI ช่วยเขียนด่้วย
 
     

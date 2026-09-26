@@ -142,6 +142,19 @@ export interface StaffTicketDetail extends StaffTicket {
   publicComments: TicketComment[];
   internalNotes: InternalNote[];
 }
+export interface AdminTicketInspection extends StaffTicketDetail {}
+export async function fetchAdminTicketInspection(ticketId: number): Promise<AdminTicketInspection> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, { credentials: "include" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Ticket inspection");
+  return body;
+}
+export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  return body;
+}
 
 export interface TicketComment { id: number; ticketId: number; body: string; createdAt: string; author: { id: number; name: string; role: string } }
 export interface InternalNote extends TicketComment {}
@@ -166,6 +179,11 @@ export async function addTicketComment(ticketId: number, body: string): Promise<
 }
 
 export async function fetchInternalNotes(ticketId: number): Promise<InternalNote[]> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load internal notes");
+  return response.json();
+}
+export async function fetchAdminInternalNotes(ticketId: number): Promise<InternalNote[]> {
   const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { credentials: "include" });
   if (!response.ok) throw new Error("Unable to load internal notes");
   return response.json();

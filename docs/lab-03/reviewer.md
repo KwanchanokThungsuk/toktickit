@@ -11,8 +11,8 @@
 | #19 | feature/19-authorization-requester | Commented and approved |
 | #20 | feature/20-staff-ticket-queue | Approved |
 | #21 | feature/21-staff-ticket-operations | Commented and approved |
-| #22 | feature/22-comments-internal-notes |  |
-| #23 | feature/23-admin-user-management |  |
+| #22 | feature/22-comments-internal-notes | approved |
+| #23 | feature/23-admin-user-management | approved |
 | #24 | feature/24-lab3-testing-e2e |  |
 | #25 | feature/25-lab3-release |  |
 | #26 |  |  |
@@ -68,8 +68,8 @@ fixed. pls recheck jubb🫪
 - How I responded: merged
 
 **feature/23-admin-user-management**
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: The create/edit user flows, role and active-status management, duplicate email protection, self-deactivation and last-active-Administrator safeguards, and initial-password reset flow are covered appropriately. Administrator routing and role-specific navigation are also aligned with the required workflow. Good job.
+- How I responded: merged
 
 **feature/24-lab3-testing-e2e**
 - Reviewer comment I received: 
@@ -117,13 +117,25 @@ The Change Password UI currently says “At least 8 characters,” but the Lab 3
         The specification requires CANCELLED → REOPENED to be an allowed transition, but the current implementation has CANCELLED: [].
 - Partner's response: I have fixed the issue. Pls review again
 
-****
-- My comment: 
-- Partner's response: 
+**feature/19-admin-user-management**
+- My comment: Overall, the User Management implementation looks good. I only found one confirmed issue with password validation:
 
-****
-- My comment: 
-- Partner's response: 
+    The Lab 3 specification requires the 12–128 password limit to be counted by Unicode code points, but the current implementation uses value.length in both the backend and frontend. This can incorrectly count non-BMP characters such as emoji as two characters.
+
+    ould you please update the password validation to count Unicode code points consistently (e.g. [...value].length) and add boundary tests for Unicode passwords?
+- Partner's response: I have updated the password validation. Could you pls recheck for me🐴
+
+**feature/20-e2e-regression-qa**
+- My comment: MIG-01 migration regression test is currently not reproducible from a clean database.
+
+    The test searches for a non-lab3-seed-ticket-* Ticket with an Attachment, but it does not create or load a Lab 2-shaped database before running the regression. On a clean database prepared with prisma migrate deploy + prisma:seed, the query returns null because the seeded Tickets are intentionally excluded.
+
+    This means MIG-01 currently does not provide evidence for the documented AC-09 requirement to preserve existing Lab 2 Ticket/Attachment identities, ownership, history, and relationships.
+
+    Please make the migration regression reproducible using an isolated Lab 2-shaped fixture/database containing pre-existing Ticket and Attachment data, then apply the Lab 3 migration chain and verify the preserved records.
+
+    MIG-02 is already passing; this request is specifically about the missing MIG-01 migration-preservation evidence.
+- Partner's response: I have fixed the MIG01 test. pls check
 
 ****
 - My comment: 
