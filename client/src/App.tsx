@@ -8,6 +8,7 @@ import ChangePassword from "./components/ChangePassword";
 import StaffTicketQueue from "./components/StaffTicketQueue";
 import StaffTicketDetail from "./components/StaffTicketDetail";
 import UserManagement from "./components/UserManagement";
+import AdminTicketInspection from "./components/AdminTicketInspection";
 import ErrorState from "./components/ErrorState";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
@@ -27,7 +28,7 @@ export default function App() {
     const isStaffRoute = view === "#/staff/tickets" || /^#\/staff\/tickets\/\d+$/.test(view);
     const isRequesterRoute = view === "#/tickets" || view === "#/tickets/new" || /^#\/tickets\/\d+$/.test(view);
     const defaultRoute = user.role === "IT_STAFF" ? "#/staff/tickets" : user.role === "REQUESTER" ? "#/tickets" : "#/admin/users";
-    const isAdminRoute = view === "#/admin/users";
+    const isAdminRoute = view === "#/admin/users" || /^#\/tickets\/\d+$/.test(view);
     if ((user.role === "IT_STAFF" && !isStaffRoute) || (user.role === "REQUESTER" && !isRequesterRoute) || (user.role === "ADMINISTRATOR" && !isAdminRoute)) {
       if (window.location.hash !== defaultRoute) window.location.hash = defaultRoute;
       setView(defaultRoute);
@@ -48,6 +49,7 @@ export default function App() {
   ] : [];
   if (view === "#/access-denied") return <ErrorState title="Access denied" message="This area is not available for your account." />;
   if (user.role === "ADMINISTRATOR" && view === "#/admin/users") return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><UserManagement /></AppShell>;
+  if (user.role === "ADMINISTRATOR" && detailMatch) return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><AdminTicketInspection ticketId={Number(detailMatch[1])} /></AppShell>;
   return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}>
     {staffDetailMatch ? (user.role === "IT_STAFF" ? <StaffTicketDetail ticketId={Number(staffDetailMatch[1])} /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingQueue ? (user.role === "IT_STAFF" ? <StaffTicketQueue /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets />}
   </AppShell>;

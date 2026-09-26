@@ -33,6 +33,18 @@ describe("Issue #22 comments and internal notes", () => {
     expect((await requesterSession.agent.get(`/api/tickets/${ticketId}/comments`)).status).toBe(200);
   });
 
+  it("allows an Administrator to inspect a Ticket and read its Public Comments", async () => {
+    const adminSession = await authenticatedAgent(admin.email, password);
+    const comments = await adminSession.agent.get(`/api/tickets/${ticketId}/comments`);
+    expect(comments.status).toBe(200);
+    expect(comments.body).toEqual(expect.arrayContaining([expect.objectContaining({ body: "A public update" })]));
+
+    const inspection = await adminSession.agent.get(`/api/tickets/${ticketId}`);
+    expect(inspection.status).toBe(200);
+    expect(inspection.body).toMatchObject({ id: ticketId, ticketNumber: expect.stringContaining("TKT-COMMENT-") });
+    expect(inspection.body.publicComments).toEqual(expect.arrayContaining([expect.objectContaining({ body: "A public update" })]));
+  });
+
   it("enforces Internal Note permissions and protects Requesters before lookup", async () => {
     const requesterSession = await authenticatedAgent(requester.email, password);
     expect((await requesterSession.agent.get(`/api/staff/tickets/${ticketId}/internal-notes`)).status).toBe(403);
