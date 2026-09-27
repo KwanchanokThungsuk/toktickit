@@ -13,7 +13,7 @@
 | #21 | feature/21-staff-ticket-operations | Commented and approved |
 | #22 | feature/22-comments-internal-notes | approved |
 | #23 | feature/23-admin-user-management | approved |
-| #24 | feature/24-lab3-testing-e2e |  |
+| #24 | feature/24-lab3-testing-e2e | approved |
 | #25 | feature/25-lab3-release |  |
 | #26 |  |  |
 
@@ -72,10 +72,15 @@ fixed. pls recheck jubb🫪
 - How I responded: merged
 
 **feature/24-lab3-testing-e2e**
+- Reviewer comment I received: I see no problem here. Administrator users can inspect Ticket information, read Public Comments and Internal Notes, and update IT Priority while Staff-only actions remain unavailable. The corresponding frontend and backend permission coverage is also included.
+Approved.
+- How I responded: merged
+
+**feature/25-lab3-release**
 - Reviewer comment I received: 
 - How I responded: 
 
-**feature/25-lab3-release**
+****
 - Reviewer comment I received: 
 - How I responded: 
 

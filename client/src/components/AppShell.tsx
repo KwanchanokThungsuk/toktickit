@@ -10,6 +10,7 @@ export interface AppShellProps {
   children?: ReactNode;
   title?: string;
   navItems?: NavItem[];
+  user?: { name: string; role: string };
   onLogout?: () => void | Promise<void>;
 }
 
@@ -20,6 +21,7 @@ export default function AppShell({
     { label: "My Tickets", href: "#/tickets", current: true },
     { label: "Create Ticket", href: "#/tickets/new" },
   ],
+  user,
   onLogout,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -58,6 +60,7 @@ export default function AppShell({
               <span />
               <span />
             </button>
+            {user ? <div className="app-header__identity" aria-label={`Signed in as ${user.name}, ${user.role}`}><span className="app-header__name">{user.name}</span><span className="app-header__role">{user.role}</span></div> : null}
             {onLogout ? <button type="button" className="app-header__logout" onClick={() => void onLogout()}>Logout</button> : null}
           </div>
         </div>

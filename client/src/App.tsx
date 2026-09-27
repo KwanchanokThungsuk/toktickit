@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
 import MyTickets from "./components/MyTickets";
@@ -17,6 +17,7 @@ import { currentUser, logout, type AuthUser } from "./api";
 export default function App() {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
   const [view, setView] = useState(() => window.location.hash || "#/tickets");
+  const previousAuthenticatedUserId = useRef<number | null>(null);
   useEffect(() => { currentUser().then(setUser).catch(() => setUser(null)); }, []);
   useEffect(() => {
     const onHashChange = () => setView(window.location.hash || "#/tickets");
@@ -29,7 +30,11 @@ export default function App() {
     const isRequesterRoute = view === "#/tickets" || view === "#/tickets/new" || /^#\/tickets\/\d+$/.test(view);
     const defaultRoute = user.role === "IT_STAFF" ? "#/staff/tickets" : user.role === "REQUESTER" ? "#/tickets" : "#/admin/users";
     const isAdminRoute = view === "#/admin/users" || /^#\/tickets\/\d+$/.test(view);
-    if ((user.role === "IT_STAFF" && !isStaffRoute) || (user.role === "REQUESTER" && !isRequesterRoute) || (user.role === "ADMINISTRATOR" && !isAdminRoute)) {
+    const switchedAuthenticatedUser = previousAuthenticatedUserId.current !== null && previousAuthenticatedUserId.current !== user.id;
+    previousAuthenticatedUserId.current = user.id;
+    const directUnauthorizedStaffRoute = !switchedAuthenticatedUser && user.role !== "IT_STAFF" && isStaffRoute;
+    const shouldNormalizeRoute = (user.role === "IT_STAFF" && !isStaffRoute) || (!directUnauthorizedStaffRoute && (switchedAuthenticatedUser || !isStaffRoute) && ((user.role === "REQUESTER" && !isRequesterRoute) || (user.role === "ADMINISTRATOR" && !isAdminRoute)));
+    if (shouldNormalizeRoute) {
       if (window.location.hash !== defaultRoute) window.location.hash = defaultRoute;
       setView(defaultRoute);
     }
@@ -48,9 +53,9 @@ export default function App() {
     { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
   ] : [];
   if (view === "#/access-denied") return <ErrorState title="Access denied" message="This area is not available for your account." />;
-  if (user.role === "ADMINISTRATOR" && view === "#/admin/users") return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><UserManagement /></AppShell>;
-  if (user.role === "ADMINISTRATOR" && detailMatch) return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><AdminTicketInspection ticketId={Number(detailMatch[1])} /></AppShell>;
-  return <AppShell navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}>
+  if (user.role === "ADMINISTRATOR" && view === "#/admin/users") return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><UserManagement /></AppShell>;
+  if (user.role === "ADMINISTRATOR" && detailMatch) return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><AdminTicketInspection ticketId={Number(detailMatch[1])} /></AppShell>;
+  return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}>
     {staffDetailMatch ? (user.role === "IT_STAFF" ? <StaffTicketDetail ticketId={Number(staffDetailMatch[1])} /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingQueue ? (user.role === "IT_STAFF" ? <StaffTicketQueue /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets />}
   </AppShell>;
 }

@@ -88,6 +88,29 @@
   justify-self: end;
 }
 
+.app-header__identity {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.app-header__name {
+  max-width: 13rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-weight: 600;
+}
+
+.app-header__role {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 .app-header__requester {
   max-width: 180px;
   overflow: hidden;
@@ -304,6 +327,7 @@
 }
 
 .ticket-detail__grid > div {
+  min-width: 0;
   padding: 0.75rem;
   background: var(--zg-readonly-bg);
   border: 1px solid var(--zg-border);
@@ -336,6 +360,10 @@
   background: var(--zg-surface);
   color: var(--zg-text);
   font: inherit;
+}
+
+.ticket-detail__grid select {
+  max-width: 100%;
 }
 
 .ticket-detail__workflow-control select:focus {

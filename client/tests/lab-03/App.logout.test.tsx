@@ -15,9 +15,32 @@ describe("authenticated app logout", () => {
 
     render(<App />);
     const logoutButton = await screen.findByRole("button", { name: "Logout" });
+    expect(screen.getByText("Alice")).toBeVisible();
+    expect(screen.getByText("REQUESTER")).toBeVisible();
+    expect(screen.getByLabelText("Signed in as Alice, REQUESTER")).toBeVisible();
     fireEvent.click(logoutButton);
 
     await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("shows Access denied for a Requester directly opening the Staff Queue", async () => {
+    window.location.hash = "#/staff/tickets";
+    vi.mocked(currentUser).mockResolvedValue({ id: 1, name: "Alice", email: "alice@example.com", role: "REQUESTER", mustChangePassword: false });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.getByText("IT Staff access is required to view the Ticket Queue.")).toBeInTheDocument();
+  });
+
+  it("shows Access denied for an Administrator directly opening the Staff Queue", async () => {
+    window.location.hash = "#/staff/tickets";
+    vi.mocked(currentUser).mockResolvedValue({ id: 2, name: "Admin", email: "admin@example.com", role: "ADMINISTRATOR", mustChangePassword: false });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.getByText("IT Staff access is required to view the Ticket Queue.")).toBeInTheDocument();
   });
 });
