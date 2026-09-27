@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const password = process.env.TOKTICKIT_E2E_PASSWORD ?? "ChangeMe123!";
 const accounts = {
@@ -12,6 +13,8 @@ const fixturePath = "/tmp/toktickit-lab3-e2e-ticket.json";
 const e2eTicketId = existsSync(fixturePath)
   ? JSON.parse(readFileSync(fixturePath, "utf8")).ticketId as number
   : Number(process.env.TOKTICKIT_E2E_TICKET_ID ?? 0);
+const authScreenshotDirectory = resolve("artifacts/lab-03/screenshots/auth");
+mkdirSync(authScreenshotDirectory, { recursive: true });
 
 async function login(page: Page, email: string) {
   await page.goto("#/tickets");
@@ -36,6 +39,7 @@ test("E2E-AUTH-01: invalid credentials are rejected", async ({ page }) => {
 test("E2E-AUTH-02: unauthenticated deep links return to sign in", async ({ page }) => {
   await page.goto("#/staff/tickets");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await page.screenshot({ path: resolve(authScreenshotDirectory, "login.png"), fullPage: true });
 });
 
 test("E2E-REQUESTER-01: authenticated Requester sees only Requester navigation", async ({ page }) => {
@@ -71,10 +75,20 @@ test("E2E-AUTH-03: logout returns the browser to sign in", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
-test("E2E-AUTH-04: initial-password account is gated before application access", async ({ page }) => {
+test("E2E-AUTH-04: initial-password account completes the forced password change flow", async ({ page }) => {
   await login(page, accounts.passwordChange);
   await expect(page.getByRole("heading", { name: "Change Password" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ticket Queue" })).toHaveCount(0);
+  await page.screenshot({ path: resolve(authScreenshotDirectory, "forced-change-password.png"), fullPage: true });
+  const newPassword = `E2E-New-${Date.now()}!`;
+  await page.getByLabel("Current password").fill(password);
+  await page.getByRole("textbox", { name: /^New password/ }).fill(newPassword);
+  await page.getByRole("textbox", { name: /^Confirm new password/ }).fill(newPassword);
+  await page.getByRole("button", { name: "Save password" }).click();
+  await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Change Password" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
+  await page.screenshot({ path: resolve(authScreenshotDirectory, "authenticated-after-password-change.png"), fullPage: true });
 });
 
 test("E2E-REQUESTER-02: Requester can create and view an owned ticket", async ({ page }) => {
