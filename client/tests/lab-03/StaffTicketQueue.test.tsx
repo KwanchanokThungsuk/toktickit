@@ -23,7 +23,7 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
   it("renders loading, empty, error, and pagination states", async () => { vi.mocked(fetchStaffTickets).mockImplementation(() => new Promise(() => undefined)); render(<StaffTicketQueue />); expect(screen.getByRole("status")).toHaveTextContent("Loading"); });
   it("renders empty and error responses", async () => { vi.mocked(fetchStaffTickets).mockResolvedValueOnce({ ...data, items: [], totalItems: 0, totalPages: 0 }); render(<StaffTicketQueue />); expect(await screen.findByText("No tickets found.")).toBeInTheDocument(); vi.mocked(fetchStaffTickets).mockRejectedValueOnce(new Error("Queue unavailable")); render(<StaffTicketQueue />); expect(await screen.findByRole("alert")).toHaveTextContent("Queue unavailable"); });
   it("renders pagination controls", async () => { vi.mocked(fetchStaffTickets).mockResolvedValue({ ...data, totalPages: 2 }); render(<StaffTicketQueue />); expect(await screen.findByRole("button", { name: "Next" })).toBeInTheDocument(); });
-  it("normalizes stale role routes after authentication", async () => {
+  it("shows Access denied for a Requester directly opening the Staff Queue", async () => {
     window.location.hash = "#/staff/tickets";
 
     vi.mocked(currentUser).mockResolvedValue({
@@ -36,11 +36,8 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
 
     render(<App />);
 
-    expect(
-      await screen.findByRole("link", { name: "Create Ticket" }),
-    ).toBeInTheDocument();
-
-    expect(window.location.hash).toBe("#/tickets");
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.getByText("IT Staff access is required to view the Ticket Queue.")).toBeInTheDocument();
 
     // Remove the Requester App instance before testing IT Staff.
     cleanup();
