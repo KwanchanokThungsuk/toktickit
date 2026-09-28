@@ -11,7 +11,6 @@ import {
   TicketSortOrder,
   TicketStatus,
 } from "../api";
-import { useRequester } from "./RequesterContext";
 import Badge from "./Badge";
 import Empty from "./Empty";
 import ErrorState from "./ErrorState";
@@ -107,7 +106,6 @@ function useIsMobile() {
 }
 
 export default function MyTickets() {
-  const { selectedRequester } = useRequester();
   const isMobile = useIsMobile();
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -140,12 +138,10 @@ export default function MyTickets() {
   }, []);
 
   useEffect(() => {
-    if (!selectedRequester) return;
     let active = true;
     setIsLoading(true);
     setError("");
     fetchTickets({
-      requesterId: selectedRequester.id,
       search,
       categoryId: filters.categoryId,
       relatedSystemId: filters.relatedSystemId,
@@ -167,7 +163,7 @@ export default function MyTickets() {
       })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, [selectedRequester, search, filters, sortBy, sortOrder, page, pageSize, retryCount]);
+  }, [search, filters, sortBy, sortOrder, page, pageSize, retryCount]);
 
   function updateFilter(name: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [name]: value }));

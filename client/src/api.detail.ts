@@ -23,16 +23,17 @@ export interface TicketDetail {
   description: string;
   requestedPriority: "LOW" | "MEDIUM" | "HIGH";
   currentStatus: string;
+  requesterResolutionIndicatedAt?: string | null;
   createdAt: string;
   attachments: TicketDetailAttachment[];
+  publicComments?: Array<{ id: number; ticketId: number; body: string; createdAt: string; author: { id: number; name: string; role: string } }>;
 }
 
 export async function fetchTicket(
   ticketId: number,
-  requesterId: number,
 ): Promise<TicketDetail> {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
 
   if (!response.ok) {

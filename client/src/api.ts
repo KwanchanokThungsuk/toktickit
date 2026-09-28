@@ -1,4 +1,16 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export interface AuthUser { id: number; name: string; email: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; mustChangePassword: boolean }
+let csrfToken = "";
+async function csrf() { const r = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" }); const b = await r.json(); csrfToken = b.csrfToken; return csrfToken; }
+async function csrfHeader() { if (!csrfToken) await csrf(); return { "X-CSRF-Token": csrfToken }; }
+export async function login(email: string, password: string) { await csrf(); const r = await fetch(`${API_URL}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ email, password }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to sign in"); await csrf(); return b.user as AuthUser; }
+export async function currentUser() { const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" }); if (!r.ok) return null; return ((await r.json()) as { user: AuthUser }).user; }
+export async function logout() { if (!csrfToken) await csrf(); await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } }); csrfToken = ""; }
+export async function changePassword(currentPassword: string, newPassword: string) { if (!csrfToken) await csrf(); const r = await fetch(`${API_URL}/api/auth/change-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ currentPassword, newPassword }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to change password"); return b; }
+export async function fetchUsers(search="", role="") { const r=await fetch(`${API_URL}/api/admin/users?search=${encodeURIComponent(search)}${role?`&role=${role}`:""}`,{credentials:"include"}); const b=await r.json(); if(!r.ok)throw new Error(b.error?.message??"Unable to load users"); return b; }
+export async function createUser(data: unknown) { const r=await fetch(`${API_URL}/api/admin/users`,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json",...(await csrfHeader())},body:JSON.stringify(data)}); const b=await r.json();if(!r.ok)throw new Error(b.error?.message??"Unable to create user");return b; }
+export async function updateUser(id:number,data:unknown) { const r=await fetch(`${API_URL}/api/admin/users/${id}`,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json",...(await csrfHeader())},body:JSON.stringify(data)});const b=await r.json();if(!r.ok)throw new Error(b.error?.message??"Unable to update user");return b; }
+export async function resetUserPassword(id:number,password:string) { const r=await fetch(`${API_URL}/api/admin/users/${id}/password`,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json",...(await csrfHeader())},body:JSON.stringify({initialPassword:password})});const b=await r.json();if(!r.ok)throw new Error(b.error?.message??"Unable to reset password");return b; }
 
 export interface Category {
   id: number;
@@ -10,11 +22,6 @@ export interface RelatedSystem {
   name: string;
 }
 
-export interface Requester {
-  id: number;
-  name: string;
-  email: string;
-}
 
 export interface SystemStatus {
   online: boolean;
@@ -40,18 +47,6 @@ export async function checkSystem(): Promise<SystemStatus> {
   return { online: true, categories };
 }
 
-// Issue 8 — fetch requesters from the backend.
-// Calls GET /api/requesters to get all active requesters for the Development Requester selector.
-// Throwing on failure lets the UI show an error state.
-export async function fetchRequesters(): Promise<Requester[]> {
-  const res = await fetch(`${API_URL}/api/requesters`);
-  if (!res.ok) {
-    throw new Error("Failed to fetch requesters");
-  }
-  const requesters: Requester[] = await res.json();
-  return requesters;
-}
-
 export async function fetchCategories(): Promise<Category[]> {
   const res = await fetch(`${API_URL}/api/categories`);
   if (!res.ok) {
@@ -71,7 +66,7 @@ export async function fetchRelatedSystems(): Promise<RelatedSystem[]> {
 export interface CreateTicketPayload {
   categoryId: number;
   relatedSystemId: number;
-  priority: string;
+  requestedPriority: TicketPriority;
   summary: string;
   description: string;
 }
@@ -80,6 +75,11 @@ export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
 export type TicketStatus = "NEW";
 export type TicketSortBy = "ticketNumber" | "createdAt" | "updatedAt";
 export type TicketSortOrder = "asc" | "desc";
+export type StaffTicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
+export interface StaffTicket { id: number; ticketNumber: string; createdAt: string; updatedAt: string; summary: string; requestedPriority: TicketPriority; itPriority: TicketPriority; currentStatus: StaffTicketStatus; category: Category; relatedSystem: RelatedSystem; assignedTo: { id: number; name: string; email: string } | null; }
+export interface StaffTicketResponse { items: StaffTicket[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
+export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; }
+export async function fetchStaffTickets(options: StaffTicketOptions = {}): Promise<StaffTicketResponse> { const params = new URLSearchParams(); Object.entries(options).forEach(([key, value]) => { if (value !== undefined && value !== "") params.set(key, String(value)); }); const res = await fetch(`${API_URL}/api/staff/tickets?${params}`, { credentials: "include" }); const body = await res.json(); if (!res.ok) throw new Error(body.error?.message ?? "Unable to load ticket queue"); return body; }
 
 export interface TicketListItem {
   id: number;
@@ -106,7 +106,6 @@ export interface TicketListResponse {
 }
 
 export interface FetchTicketsOptions {
-  requesterId: number;
   search?: string;
   categoryId?: string;
   relatedSystemId?: string;
@@ -118,26 +117,129 @@ export interface FetchTicketsOptions {
   pageSize: number;
 }
 
-export async function fetchTickets({ requesterId, ...options }: FetchTicketsOptions): Promise<TicketListResponse> {
+export async function fetchTickets(options: FetchTicketsOptions): Promise<TicketListResponse> {
   const params = new URLSearchParams();
   Object.entries(options).forEach(([key, value]) => {
     if (value !== undefined && value !== "") params.set(key, String(value));
   });
 
   const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Unable to load your tickets");
   return res.json();
 }
 
-export async function createTicket(payload: CreateTicketPayload, requesterId: number) {
+export interface StaffTicketDetail extends StaffTicket {
+  description: string;
+  requester: { id: number; name: string; email: string };
+  category: { id: number; name: string };
+  relatedSystem: { id: number; name: string };
+  attachments: AttachmentMetadata[];
+  eligibleOwners: Array<{ id: number; name: string; email: string; role: string }>;
+  requesterResolutionIndicatedAt: string | null;
+  requesterResolutionIndicatedByUserId: number | null;
+  publicComments: TicketComment[];
+  internalNotes: InternalNote[];
+}
+export interface AdminTicketInspection extends StaffTicketDetail {}
+export async function fetchAdminTicketInspection(ticketId: number): Promise<AdminTicketInspection> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, { credentials: "include" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Ticket inspection");
+  return body;
+}
+export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  return body;
+}
+
+export interface TicketComment { id: number; ticketId: number; body: string; createdAt: string; author: { id: number; name: string; role: string } }
+export interface InternalNote extends TicketComment {}
+
+export async function fetchStaffTicketDetail(ticketId: number): Promise<StaffTicketDetail> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load ticket details");
+  return response.json();
+}
+
+export async function fetchTicketComments(ticketId: number): Promise<TicketComment[]> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/comments`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load comments");
+  return response.json();
+}
+
+export async function addTicketComment(ticketId: number, body: string): Promise<TicketComment> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/comments`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ body }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message ?? "Unable to add comment");
+  return result;
+}
+
+export async function fetchInternalNotes(ticketId: number): Promise<InternalNote[]> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load internal notes");
+  return response.json();
+}
+export async function fetchAdminInternalNotes(ticketId: number): Promise<InternalNote[]> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { credentials: "include" });
+  if (!response.ok) throw new Error("Unable to load internal notes");
+  return response.json();
+}
+
+export async function addInternalNote(ticketId: number, body: string): Promise<InternalNote> {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/internal-notes`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ body }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message ?? "Unable to add internal note");
+  return result;
+}
+
+export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/owner`, {
+    method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) },
+    body: JSON.stringify({ ownerId }),
+  });
+  if (!response.ok) throw new Error("Unable to update ticket owner");
+  return response.json();
+}
+
+export async function claimStaffTicket(ticketId: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: await csrfHeader() });
+  if (!response.ok) throw new Error("Unable to claim ticket");
+  return response.json();
+}
+
+export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority">;
+}
+
+export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update Ticket status");
+  return body as Pick<StaffTicketDetail, "id" | "currentStatus">;
+}
+
+export async function indicateProblemResolved(ticketId: number) {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: await csrfHeader() });
+  if (!response.ok) throw new Error("Unable to indicate problem resolution");
+  return response.json();
+}
+
+export async function createTicket(payload: CreateTicketPayload) {
+  const token = await csrfHeader();
   const res = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Requester-Id": requesterId.toString(),
+      ...token,
     },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -176,18 +278,15 @@ function attachmentErrorMessage(
   return fallback;
 }
 
-export async function uploadAttachment(ticketId: number, file: File, requesterId: number): Promise<AttachmentMetadata> {
+export async function uploadAttachment(ticketId: number, file: File): Promise<AttachmentMetadata> {
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
   const formData = new FormData();
   formData.append("file", file); 
 
   const response = await fetch(`${apiUrl}/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    headers: {
-      "X-Requester-Id": String(requesterId),
-      // ห้ามใส่ Content-Type application/json เพราะใช้ FormData
-    },
-    body: formData,
+    // Do not set Content-Type manually for FormData.
+    body: formData, credentials: "include", headers: await csrfHeader(),
   });
 
   if (!response.ok) {
@@ -203,18 +302,18 @@ export async function uploadAttachment(ticketId: number, file: File, requesterId
   return response.json() as Promise<AttachmentMetadata>;
 }
 
-export async function fetchAttachments(ticketId: number, requesterId: number): Promise<AttachmentMetadata[]> {
+export async function fetchAttachments(ticketId: number): Promise<AttachmentMetadata[]> {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!response.ok) throw new Error("Unable to load attachments");
   return response.json() as Promise<AttachmentMetadata[]>;
 }
 
-export async function removeAttachment(attachmentId: number, removedReason: string, requesterId: number): Promise<AttachmentMetadata> {
+export async function removeAttachment(attachmentId: number, removedReason: string): Promise<AttachmentMetadata> {
   const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/remove`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", "X-Requester-Id": String(requesterId) },
+    headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, credentials: "include",
     body: JSON.stringify({ removedReason }),
   });
   if (!response.ok) {
@@ -225,9 +324,9 @@ export async function removeAttachment(attachmentId: number, removedReason: stri
   return response.json() as Promise<AttachmentMetadata>;
 }
 
-export async function downloadAttachment(attachmentId: number, requesterId: number): Promise<{ blob: Blob; filename: string }> {
+export async function downloadAttachment(attachmentId: number): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(`${API_URL}/api/attachments/${attachmentId}/download`, {
-    headers: { "X-Requester-Id": String(requesterId) },
+    credentials: "include",
   });
   if (!response.ok) {
     let body: unknown;

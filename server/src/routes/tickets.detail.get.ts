@@ -1,23 +1,16 @@
 import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
+import { authenticatedUserId, requireRequester } from "../auth.js";
 
 const router = Router();
 
 router.get("/api/tickets/:id", async (req: Request, res: Response) => {
   try {
-    const requesterIdHeader = req.header("X-Requester-Id");
-    if (!requesterIdHeader || !/^\d+$/.test(requesterIdHeader)) {
-      return res.status(400).json({
-        error: {
-          code: "REQUESTER_CONTEXT_MISSING",
-          message: "Missing or invalid X-Requester-Id header",
-        },
-      });
-    }
-
+    if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
+    if (req.auth.role !== "REQUESTER" && req.auth.role !== "ADMINISTRATOR") return res.status(403).json({ error: { code: "FORBIDDEN", message: "Ticket inspection forbidden." } });
+    const authenticatedId = authenticatedUserId(req)!;
     const ticketId = Number(req.params.id);
-    const requesterId = Number(requesterIdHeader);
     if (!Number.isInteger(ticketId) || ticketId < 1) {
       return res.status(404).json({
         error: { code: "NOT_FOUND", message: "Ticket not found" },
@@ -31,7 +24,7 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
         requester: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
-        attachments: {
+        attachments: req.auth.role === "REQUESTER" ? {
           orderBy: { uploadedAt: "asc" },
           select: {
             id: true,
@@ -43,7 +36,8 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
             removedAt: true,
             removedReason: true,
           },
-        },
+        } : false,
+        publicComments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } },
       },
     });
 
@@ -53,7 +47,7 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
       });
     }
 
-    if (ticket.requesterId !== requesterId) {
+    if (req.auth.role === "REQUESTER" && ticket.requesterId !== authenticatedId) {
       return res.status(404).json({
         error: { code: "NOT_FOUND", message: "That ticket could not be found." },
       });

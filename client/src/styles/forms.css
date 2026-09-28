@@ -59,6 +59,27 @@
   line-height: 1.4;
 }
 
+.password-input {
+  position: relative;
+  display: block;
+}
+
+.password-input input {
+  padding-right: 2.75rem;
+}
+
+.password-input-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--zg-text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
 .zg-form-help {
   color: var(--zg-text-muted);
 }

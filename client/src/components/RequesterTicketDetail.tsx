@@ -1,5 +1,4 @@
   import { useEffect, useRef, useState } from "react";
-  import { useRequester } from "./RequesterContext";
   import Badge from "./Badge";
   import ErrorState from "./ErrorState";
   import Loading from "./Loading";
@@ -9,11 +8,13 @@
   } from "../api.detail";
   import {
     downloadAttachment,
+    indicateProblemResolved,
     removeAttachment,
     uploadAttachment,
     type AttachmentMetadata,
   } from "../api";
   import type { BadgeVariant } from "./Badge";
+  import { PublicComments } from "./CommunicationPanel";
   const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
   interface RequesterTicketDetailProps {
@@ -50,7 +51,6 @@
   export default function RequesterTicketDetail({
     ticketId,
   }: RequesterTicketDetailProps) {
-    const { selectedRequester } = useRequester();
 
     const [ticket, setTicket] = useState<TicketDetail | null>(null);
     const [error, setError] = useState("");
@@ -63,6 +63,8 @@
       useState<TicketDetail["attachments"][number] | null>(null);
     const [removalReason, setRemovalReason] = useState("");
     const [isRemoving, setIsRemoving] = useState(false);
+    const [resolutionError, setResolutionError] = useState("");
+    const [resolutionSubmitting, setResolutionSubmitting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const removalReasonRef = useRef<HTMLTextAreaElement>(null);
@@ -84,12 +86,7 @@
       setError("");
       setIsLoading(true);
 
-      if (!selectedRequester) {
-        setIsLoading(false);
-        return undefined;
-      }
-
-      fetchTicket(ticketId, selectedRequester.id)
+      fetchTicket(ticketId)
         .then((data) => {
           if (active) {
             setTicket(data);
@@ -113,7 +110,7 @@
       return () => {
         active = false;
       };
-    }, [ticketId, selectedRequester]);
+    }, [ticketId]);
 
     if (isLoading) {
       return <Loading message="Loading ticket details..." />;
@@ -168,7 +165,7 @@
 
     event.target.value = "";
 
-    if (!file || !selectedRequester) {
+    if (!file) {
       return;
     }
 
@@ -186,7 +183,6 @@
       const attachment = await uploadAttachment(
         ticketId,
         file,
-        selectedRequester.id,
       );
 
       setTicket((current) =>
@@ -214,16 +210,11 @@
     async function handleDownload(
       attachment: TicketDetail["attachments"][number],
     ) {
-      if (!selectedRequester) {
-        return;
-      }
-
       setAttachmentError("");
 
       try {
         const { blob, filename } = await downloadAttachment(
           attachment.id,
-          selectedRequester.id,
         );
 
         const url = URL.createObjectURL(blob);
@@ -246,10 +237,6 @@
     async function handlePreview(
       attachment: TicketDetail["attachments"][number],
     ) {
-      if (!selectedRequester) {
-        return;
-      }
-
       const previewWindow = window.open("", "_blank");
 
       if (!previewWindow) {
@@ -262,7 +249,6 @@
       try {
         const { blob } = await downloadAttachment(
           attachment.id,
-          selectedRequester.id,
         );
 
         const url = URL.createObjectURL(blob);
@@ -270,7 +256,7 @@
         previewWindow.location.href = url;
 
         window.setTimeout(() => {
-          URL.revokeObjectURL(url);
+          URL.revokeObjectURL?.(url);
         }, 1000);
       } catch (reason) {
         previewWindow.close();
@@ -285,7 +271,6 @@
 
     async function confirmRemoval() {
       if (
-        !selectedRequester ||
         !removingAttachment ||
         !removalReasonIsValid
       ) {
@@ -299,7 +284,6 @@
         const removed = await removeAttachment(
           removingAttachment.id,
           removalReason.trim(),
-          selectedRequester.id,
         );
 
         applyAttachmentUpdate(removed);
@@ -315,6 +299,17 @@
       } finally {
         setIsRemoving(false);
       }
+    }
+
+    async function handleProblemResolved() {
+      setResolutionSubmitting(true);
+      setResolutionError("");
+      try {
+        const updated = await indicateProblemResolved(ticketId);
+        setTicket((current) => current ? { ...current, requesterResolutionIndicatedAt: updated.requesterResolutionIndicatedAt } : current);
+      } catch (reason) {
+        setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
+      } finally { setResolutionSubmitting(false); }
     }
 
     function closeRemovalDialog() {
@@ -438,6 +433,13 @@
                 </Badge>
               </dd>
             </div>
+
+            {ticket.currentStatus === "IN_PROGRESS" || ticket.currentStatus === "WAITING_FOR_REQUESTER" ? (
+              <div className="ticket-detail__wide">
+                {ticket.requesterResolutionIndicatedAt ? <p className="text-success">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
+                {resolutionError ? <p className="text-danger">{resolutionError}</p> : null}
+              </div>
+            ) : null}
 
             <div className="ticket-detail__wide">
               <dt>Summary</dt>
@@ -594,6 +596,8 @@
             </ul>
           )}
         </section>
+
+        <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
 
         {removingAttachment ? (
           <div

@@ -1,10 +1,23 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useRequester } from "./RequesterContext";
-import { Category, fetchCategories, fetchRelatedSystems, RelatedSystem, uploadAttachment } from "../api";
+import {
+  Category,
+  RelatedSystem,
+  TicketPriority,
+  createTicket,
+  fetchCategories,
+  fetchRelatedSystems,
+  uploadAttachment,
+} from "../api";
 
 type LoadState = "loading" | "ready" | "error";
 type FormField = "category" | "relatedSystem" | "priority" | "summary" | "description";
-type FormValues = Record<FormField, string>;
+type FormValues = {
+  category: string;
+  relatedSystem: string;
+  priority: TicketPriority;
+  summary: string;
+  description: string;
+};
 type ValidationErrors = Partial<Record<FormField, string>>;
 interface FailedUpload {
   file: File;
@@ -35,7 +48,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES = 5;
 
 export default function CreateTicket() {
-  const { selectedRequester } = useRequester();
   const [categories, setCategories] = useState<Category[]>([]);
   const [relatedSystems, setRelatedSystems] = useState<RelatedSystem[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -78,8 +90,14 @@ export default function CreateTicket() {
   }, []);
 
   function updateField(field: FormField, value: string) {
-    setFormValues((currentValues) => ({ ...currentValues, [field]: value }));
-    setValidationErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      [field]: value,
+    }));
+    setValidationErrors((currentErrors) => ({
+      ...currentErrors,
+      [field]: undefined,
+    }));
     setSubmitError("");
   }
 
@@ -145,62 +163,27 @@ export default function CreateTicket() {
       return;
     }
 
-    if (!selectedRequester) {
-      setSubmitError("Select a requester before creating a ticket.");
-      return;
-    }
-
     setIsSubmitting(true);
     setSubmitError("");
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/tickets`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requester-Id": String(selectedRequester.id),
-        },
-        body: JSON.stringify({
-          categoryId: Number(formValues.category),
-          relatedSystemId: Number(formValues.relatedSystem),
-          summary: formValues.summary.trim(),
-          description: formValues.description.trim(),
-          requestedPriority: formValues.priority,
-        }),
+      const ticket = await createTicket({
+        categoryId: Number(formValues.category),
+        relatedSystemId: Number(formValues.relatedSystem),
+        summary: formValues.summary.trim(),
+        description: formValues.description.trim(),
+        requestedPriority: formValues.priority,
       });
 
-      if (!response.ok) {
-        let message = "Unable to create ticket. Please try again.";
-        if (response.status < 500) {
-          try {
-            const responseBody = await response.json();
-            if (typeof responseBody?.error?.message === "string") {
-              message = responseBody.error.message;
-            } else if (typeof responseBody?.message === "string") {
-              message = responseBody.message;
-            }
-          } catch {
-            // Keep fallback
-          }
-        }
-        throw new Error(message);
-      }
-
-      if (response.status !== 201) {
-        throw new Error("Unable to create ticket. Please try again.");
-      }
-
-      const ticket = await response.json();
-      setSuccessTicketNumber(ticket.ticketNumber);
-      setCreatedTicketId(ticket.id);
-      setFailedUploads([]);
+setSuccessTicketNumber(ticket.ticketNumber);
+setCreatedTicketId(ticket.id);
+setFailedUploads([]);
 
       if (selectedFiles.length > 0) {
         const failures: FailedUpload[] = [];
         for (const file of selectedFiles) {
           try {
-            await uploadAttachment(ticket.id, file, selectedRequester.id);
+            await uploadAttachment(ticket.id, file);
           } catch (reason) {
             failures.push({ file, reason: reason instanceof Error ? reason.message : "Unable to upload attachment" });
           }
@@ -215,10 +198,10 @@ export default function CreateTicket() {
   }
 
   async function retryUpload(failedUpload: FailedUpload) {
-    if (!createdTicketId || !selectedRequester) return;
+    if (!createdTicketId) return;
     setRetryingFileName(failedUpload.file.name);
     try {
-      await uploadAttachment(createdTicketId, failedUpload.file, selectedRequester.id);
+      await uploadAttachment(createdTicketId, failedUpload.file);
       setFailedUploads((current) => current.filter((item) => item.file !== failedUpload.file));
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Unable to upload attachment";
@@ -328,7 +311,7 @@ export default function CreateTicket() {
             <div className="col-md-6 col-lg-4">
               <div className="rounded-2 p-3 h-100" style={readonlyStyle}>
                 <div className="form-label mb-1" style={{ color: "var(--zg-text-muted)" }}>Requester</div>
-                <div>{selectedRequester?.name || "Unknown"}</div>
+                <div>Authenticated requester</div>
               </div>
             </div>
           </div>
