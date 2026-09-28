@@ -60,19 +60,6 @@ router.get("/api/staff/tickets/:id/internal-notes", async (req, res) => {
   } catch (error) { return internalServerError(res, "GET NOTES ERROR:", error); }
 });
 
-router.get("/api/tickets/:id/internal-notes", async (req, res) => {
-  if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
-  if (req.auth.role !== "ADMINISTRATOR" && req.auth.role !== "IT_STAFF") return res.status(403).json({ error: { code: "FORBIDDEN", message: "Internal Note access forbidden." } });
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
-  try {
-    const prisma = getPrisma();
-    if (!await prisma.ticket.findUnique({ where: { id }, select: { id: true } })) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
-    const notes = await prisma.internalNote.findMany({ where: { ticketId: id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } });
-    return res.status(200).json(notes);
-  } catch (error) { return internalServerError(res, "GET NOTES ERROR:", error); }
-});
-
 router.post("/api/staff/tickets/:id/internal-notes", async (req, res) => {
   if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
   if (req.auth.role !== "IT_STAFF") return res.status(403).json({ error: { code: "FORBIDDEN", message: "Internal Note creation forbidden." } });

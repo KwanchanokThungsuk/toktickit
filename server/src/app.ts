@@ -14,7 +14,7 @@ import staffTicketsRouter from "./routes/staff-tickets.get.js";
 import staffTicketDetailRouter from "./routes/staff-ticket-detail.js";
 import commentsNotesRouter from "./routes/comments-notes.js";
 import authRouter from "./routes/auth.js";
-import { attachAuth, authenticatedUserId, requireRequester } from "./auth.js";
+import { attachAuth, authenticatedUserId, requireCsrf, requireRequester } from "./auth.js";
 import userManagementRouter from "./user-management.js";
 
 export const app = express();
@@ -140,6 +140,7 @@ app.post("/api/tickets/:id/attachments", async (req: Request, res: Response) => 
   try {
     const requesterId = await getRequesterId(req, res);
     if (requesterId === null) return;
+    if (!requireCsrf(req, res)) return;
 
     const ticketId = Number(req.params.id);
     const prisma = getPrisma();
@@ -243,6 +244,7 @@ app.patch("/api/attachments/:id/remove", async (req: Request, res: Response) => 
   try {
     const requesterId = await getRequesterId(req, res);
     if (requesterId === null) return;
+    if (!requireCsrf(req, res)) return;
     const attachmentId = Number(req.params.id);
     const prisma = getPrisma();
     const attachment = Number.isInteger(attachmentId) && attachmentId > 0
