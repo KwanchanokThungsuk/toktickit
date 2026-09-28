@@ -29,6 +29,26 @@ describe("Attachment lifecycle API", () => {
     await prisma.relatedSystem.deleteMany({ where: { id: relatedSystemId } });
   });
   async function ownerSession() { return authenticatedAgent(ownerEmail, password); }
+  it("requires CSRF for attachment mutations and accepts a valid token", async () => {
+    const { agent, csrfToken } = await ownerSession();
+    const missing = await agent.post(`/api/tickets/${ticketId}/attachments`).attach("file", Buffer.from("image"), { filename: "missing.png", contentType: "image/png" });
+    expect(missing.status).toBe(403);
+    expect(missing.body.error.code).toBe("CSRF_INVALID");
+
+    const invalid = await agent.post(`/api/tickets/${ticketId}/attachments`).set("X-CSRF-Token", "invalid-token").attach("file", Buffer.from("image"), { filename: "invalid.png", contentType: "image/png" });
+    expect(invalid.status).toBe(403);
+    expect(invalid.body.error.code).toBe("CSRF_INVALID");
+
+    const created = await agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(csrfToken)).attach("file", Buffer.from("image"), { filename: "valid.png", contentType: "image/png" });
+    expect(created.status).toBe(201);
+
+    const removeInvalid = await agent.patch(`/api/attachments/${created.body.id}/remove`).set("X-CSRF-Token", "invalid-token").send({ removedReason: "Remove this attachment" });
+    expect(removeInvalid.status).toBe(403);
+    expect(removeInvalid.body.error.code).toBe("CSRF_INVALID");
+
+    const removed = await agent.patch(`/api/attachments/${created.body.id}/remove`).set(csrfHeaders(csrfToken)).send({ removedReason: "Remove this attachment" });
+    expect(removed.status).toBe(200);
+  });
   it("uploads and lists metadata, then preserves original filename on download", async () => { const { agent, csrfToken } = await ownerSession(); const created = await agent.post(`/api/tickets/${ticketId}/attachments`).set(csrfHeaders(csrfToken)).attach("file", Buffer.from("image data"), { filename: "screenshot.png", contentType: "image/png" }); expect(created.status).toBe(201); expect(created.body).toMatchObject({ ticketId, originalFilename: "screenshot.png", isRemoved: false }); expect(created.body.storedFilename).toBeUndefined(); const list = await agent.get(`/api/tickets/${ticketId}/attachments`); expect(list.status).toBe(200); expect(list.body[0].storedFilename).toBeUndefined(); const download = await agent.get(`/api/attachments/${created.body.id}/download`); expect(download.status).toBe(200); expect(download.headers["content-disposition"]).toContain('filename="screenshot.png"'); });
   it("rejects unsupported types and oversized files", async () => {
     const { agent, csrfToken } = await ownerSession();

@@ -285,8 +285,9 @@ An Administrator may:
 - Create a user with exactly one permitted role.
 - Edit a user's name, email, role, and activation state.
 - Set a new initial password for a user.
-- View Public Comments where the API explicitly permits Administrator read access.
-- View Internal Notes where the API explicitly permits Administrator read access.
+- Inspect an authorized Ticket through the Administrator Ticket Inspection context.
+- View Public Comments for an authorized Ticket.
+- View Internal Notes for an authorized Ticket in read-only mode.
 - Change IT Priority in an authorized Ticket context.
 - Change their own password.
 - Log out.
@@ -297,8 +298,10 @@ Changing IT Priority is the explicit Lab 3 exception: an Administrator may
 perform that operation in an authorized Ticket context without receiving
 the Staff Queue or general IT Staff workflow permissions.
 
-Read-only communication access does not grant an Administrator the Staff
-Queue or a Staff Ticket Detail workflow.
+Administrator Ticket Inspection is a read-only inspection context except for
+the explicit IT Priority update permission. It does not grant Staff Queue,
+claim/reassign, status-transition, Public Comment creation, or Internal Note
+creation permissions.
 
 An Administrator may not:
 
@@ -386,23 +389,48 @@ The response follows the Lab 2 Ticket creation contract.
 
 ### 4.4 GET `/api/tickets/:id`
 
-Return a Ticket owned by the authenticated Requester.
+Return Ticket information for an authorized Ticket context.
 
 #### Authorization
 
-`REQUESTER`
+- `REQUESTER`: own Ticket only. The backend must verify ownership before
+  returning the Ticket.
+- `ADMINISTRATOR`: authorized Ticket Inspection access. The Administrator may
+  inspect the Ticket and its permitted read-only communication information,
+  subject to the Administrator permission boundary.
 
-The backend must verify ownership before returning the Ticket.
+An Administrator's access to this endpoint does not grant Staff Queue,
+claim/reassign, or status-transition permissions. IT Priority may be updated
+separately through `PATCH /api/staff/tickets/:id/priority` as the explicit
+Administrator exception.
 
 ### 4.5 Attachment APIs
 
-All Lab 2 Attachment endpoints remain available with the same paths and response shapes.
+All Lab 2 Requester Attachment endpoints remain available with the same paths
+and response shapes.
 
-For Requester access, the backend must verify that the authenticated Requester owns the parent Ticket before allowing Attachment upload, metadata retrieval, download, or permitted removal operations.
+For Requester access, the backend must verify that the authenticated
+Requester owns the parent Ticket before allowing Attachment upload, metadata
+retrieval, download, or permitted removal operations.
 
-For staff access, Attachment operations are allowed only through the approved IT Staff Ticket workflow and must still enforce authentication and role authorization.
+The existing Lab 2 Attachment mutation/download/list endpoints are Requester
+operations. They do not provide a separate IT Staff Attachment
+upload/download/removal workflow.
 
-No Attachment operation may allow a user to bypass Ticket ownership or role restrictions.
+IT Staff may receive Attachment metadata through the Staff Ticket Detail
+endpoint (`GET /api/staff/tickets/:id`) when the Ticket is available through
+the Staff workflow. This does not grant IT Staff access to the Requester-only
+Attachment upload, download, list, or removal endpoints.
+
+Administrator Ticket Inspection is not an Attachment access grant. The Admin
+inspection response does not include Attachment information, and no separate
+Administrator Attachment upload, download, or removal workflow is provided.
+
+All Attachment state-changing requests, including upload and removal, require
+the session-bound `X-CSRF-Token` defined in section 1.2.
+
+No Attachment operation may allow a user to bypass authentication, role
+authorization, or Requester Ticket ownership rules.
 
 ---
 
@@ -489,6 +517,10 @@ Requesters and Administrators must not use this endpoint as IT Staff.
 ### 6.1 GET `/api/staff/tickets/:id`
 
 Return a Ticket for the IT Staff workflow.
+
+This endpoint is the Staff workflow's source for Ticket and Attachment
+metadata. It does not grant Staff access to the Requester-only Attachment
+upload, download, list, or removal endpoints.
 
 #### Authorization
 
@@ -1020,8 +1052,8 @@ The API must:
 | POST `/api/auth/change-password` | Yes | Yes | Yes |
 | GET `/api/tickets` | Own | No | No |
 | POST `/api/tickets` | Yes | No | No |
-| GET `/api/tickets/:id` | Own | No | No |
-| Existing Lab 2 Attachment APIs | Own | Permitted staff workflow | No |
+| GET `/api/tickets/:id` | Own | No | Authorized Ticket Inspection |
+| Existing Lab 2 Attachment APIs | Own | No | No |
 | GET `/api/staff/tickets` | No | Yes | No |
 | GET `/api/staff/tickets/:id` | No | Yes | No |
 | PATCH `/api/staff/tickets/:id/owner` | No | Yes | No |
@@ -1029,7 +1061,7 @@ The API must:
 | PATCH `/api/staff/tickets/:id/status` | No | Yes | No |
 | GET `/api/tickets/:id/comments` | Own | Permitted | Yes (read) |
 | POST `/api/tickets/:id/comments` | Own | Permitted | No |
-| GET `/api/staff/tickets/:id/internal-notes` | No | Yes | Yes (read-only) |
+| GET `/api/staff/tickets/:id/internal-notes` | No | Yes | Yes (read-only, authorized Ticket context) |
 | POST `/api/staff/tickets/:id/internal-notes` | No | Yes | No |
 | POST `/api/tickets/:id/problem-resolved` | Own | No | No |
 | GET `/api/admin/users` | No | No | Yes |

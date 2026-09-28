@@ -20,7 +20,7 @@ accessibility, and feedback assertions alongside behavior checks.
 Tests are written alongside implementation and mapped to Acceptance
 Criteria from `specification.md`.
 
-The final status of each test will be updated before the Lab 3 release.
+Final test status has been verified and is recorded in Section 15.
 
 
 ## 2. Test Environment
@@ -52,7 +52,7 @@ The Lab 3 server tests are organized as:
 
     server/tests/lab-03/
     ├── auth.api.test.ts
-    ├── authorization.api.test.ts
+    ├── migration-regression.integration.test.ts
     ├── staff-queue.api.test.ts
     ├── staff-ticket-detail.api.test.ts
     ├── comments-notes.api.test.ts
@@ -118,8 +118,8 @@ Password change rejects incorrect current password.
 ### AUTH-09
 Invalid replacement passwords (11 or 129 characters, or equal to current
 password) return `400`; 12 and 128 characters are accepted with a valid
-current password. Confirmation mismatch is tested in ChangePassword.test.tsx
-because confirmation is not an API field.
+current password. Confirmation mismatch is covered by the current client
+password-change UI test coverage because confirmation is not an API field.
 
 ### AUTH-10
 Logout invalidates the authenticated session.
@@ -167,9 +167,13 @@ Review tracked fixtures/configuration for committed authentication secrets.
 
 ## 5. Authorization Tests
 
-File:
+Evidence is distributed across the current server suites:
 
-    server/tests/lab-03/authorization.api.test.ts
+    server/tests/lab-03/auth.api.test.ts
+    server/tests/lab-03/comments-notes.api.test.ts
+    server/tests/lab-03/staff-queue.api.test.ts
+    server/tests/lab-03/staff-ticket-detail.api.test.ts
+    server/tests/lab-03/users-admin.api.test.ts
 
 ### AUTHZ-01
 Unauthenticated user cannot access protected endpoints.
@@ -560,26 +564,43 @@ New Ticket IT Priority copies Requested Priority, with no workflow owner.
 Changing IT Priority preserves Requested Priority. Migrated Tickets retain
 Requested Priority and receive its value as their initial IT Priority.
 
-Regression API/migration cases run in `server/tests/lab-03/authorization.api.test.ts`
-(REG-01 through REG-10a, REG-13/14); Requester UI cases run in the existing
-Lab 2 Requester component tests and authentication E2E for REG-11/12.
+Regression API cases run in the existing Lab 2 suites and Lab 3 authentication,
+queue, detail, and communication suites. Migration preservation is verified in
+`server/tests/lab-03/migration-regression.integration.test.ts`; this test creates
+the Lab 2-schema fixture before applying the real Lab 3 migrations and supports
+REG-09 and REG-10. Requester UI cases run in the existing Lab 2 Requester
+component tests and authentication E2E for REG-11/12.
+
+Seed evidence: `server/prisma/seed.ts` uses deterministic upserts for reference
+data and seeded tickets, and creates seeded communications for the seeded
+fixtures. The repeatable seed command is `cd server && npm run prisma:seed`.
+The repository does not contain a separate automated seed-idempotency test;
+idempotency is supported by the seed implementation and command, while the
+verified server suite covers the resulting application behavior.
 
 
 ## 11. Client/UI Tests
 
-Required files:
+The final client suite contains 13 test files in total. The following 7 files
+are the Lab 3-specific client evidence files:
 
-    client/.../lab-03 tests/
-    ├── Login.test.tsx
-    ├── ChangePassword.test.tsx
-    ├── StaffTicketQueue.test.tsx
+    client/tests/lab-03/
+    ├── AdminTicketInspection.test.tsx
+    ├── App.logout.test.tsx
+    ├── CommunicationPanel.test.tsx
     ├── StaffTicketDetail.test.tsx
-    └── UserManagement.test.tsx
+    ├── StaffTicketQueue.test.tsx
+    ├── UserManagement.test.tsx
+    └── password-visibility.test.tsx
 
-The exact directory shall follow the existing client test structure.
+Authentication-shell evidence is covered by
+`client/tests/lab-03/App.logout.test.tsx` and the authenticated E2E suite;
+password visibility is covered by
+`client/tests/lab-03/password-visibility.test.tsx`. There is no standalone
+`Login.test.tsx` or `ChangePassword.test.tsx` file in the current checkout.
 
 
-### Login.test.tsx
+### Authentication UI tests (current suites)
 
 Tests:
 
@@ -595,7 +616,7 @@ Tests:
 - obtains/refetches CSRF token and sends it on login/logout/password mutations
 
 
-### ChangePassword.test.tsx
+### Change Password UI coverage
 
 Tests:
 
@@ -693,15 +714,18 @@ Tests:
 
 ## 12. E2E Tests
 
-Required files:
+Current files:
 
     e2e/lab-03/
-    ├── authentication.spec.ts
-    ├── staff-ticket-flow.spec.ts
-    └── user-administration.spec.ts
+    ├── authenticated-flows.spec.ts
+    ├── responsive.spec.ts
+    └── accessibility.spec.ts
+
+Verified results: authenticated flows 14/14 passed, responsive tests 16/16
+passed, and accessibility tests 3/3 passed.
 
 
-### authentication.spec.ts
+### authenticated-flows.spec.ts
 
 Scenario:
 
@@ -717,7 +741,7 @@ Scenario:
 10. Verify normal application access.
 
 
-### staff-ticket-flow.spec.ts
+### authenticated-flows.spec.ts (IT Staff workflow scenarios)
 
 Scenario:
 
@@ -735,7 +759,7 @@ Scenario:
 12. Verify responsive layout.
 
 
-### user-administration.spec.ts
+### authenticated-flows.spec.ts (Administrator workflow scenarios)
 
 Scenario:
 
@@ -758,13 +782,19 @@ Scenario:
 
 ## 13. Responsive and Visual QA
 
-Required screenshot directories:
+Screenshot evidence is stored in:
 
     artifacts/lab-03/screenshots/
-    ├── authentication/
-    ├── staff-queue/
-    ├── staff-ticket-detail/
-    └── user-management/
+    ├── auth/
+    ├── requester/
+    ├── staff/
+    └── admin/
+
+There are 27 Lab 3 screenshots, including:
+
+    artifacts/lab-03/screenshots/auth/login.png
+    artifacts/lab-03/screenshots/auth/forced-change-password.png
+    artifacts/lab-03/screenshots/auth/authenticated-after-password-change.png
 
 At desktop, tablet, and mobile viewports, verify all required screens,
 keyboard navigation, focus, accessible labels/feedback, Zen Green styles,
@@ -815,8 +845,8 @@ Screenshots should demonstrate:
 | AC-04 | AUTH-05, AUTH-07, AUTH-09, AUTH-17, E2E authentication |
 | AC-05 | AUTH-10 |
 | AC-06 | AUTH-11, AUTH-15 |
-| Session/CSRF/security contract | AUTH-12 through AUTH-18 |
-| Current authenticated user | AUTH-06, AUTH-13 |
+| Supporting: session/CSRF/security contract | AUTH-12 through AUTH-18 |
+| Supporting: current authenticated user | AUTH-06, AUTH-13 |
 | AC-07 | AUTHZ-06, REG-06 |
 | AC-08 | AUTHZ-08, COMMENT-12 |
 | AC-09 | QUEUE-01, QUEUE-02, QUEUE-17, AUTHZ-02, AUTHZ-05, AUTHZ-14 |
@@ -839,53 +869,36 @@ Screenshots should demonstrate:
 | AC-25 | COMMENT-04, COMMENT-05, COMMENT-06, COMMENT-13, COMMENT-14, COMMENT-15 |
 | AC-26 | COMMENT-10, COMMENT-11, COMMENT-18 |
 | AC-27 | COMMENT-09, COMMENT-12 |
-| Problem Appears Resolved | DETAIL-13, DETAIL-13a |
-| Administrator read-only communications | AUTHZ-15, COMMENT-17, COMMENT-18 |
-| Migration identity preservation | REG-09, REG-10, REG-10a, REG-11, REG-12, REG-13 |
-| Append-only communications | COMMENT-19 |
+| Supporting: Problem Appears Resolved | DETAIL-13, DETAIL-13a |
+| Supporting: Administrator read-only communications | AUTHZ-15, COMMENT-17, COMMENT-18 |
+| Supporting: migration identity preservation | REG-09, REG-10, REG-10a, REG-11, REG-12, REG-13 |
+| Supporting: append-only communications | COMMENT-19 |
 | AC-28 | ADMIN-06, ADMIN-07 |
 | AC-29 | ADMIN-08 |
 | AC-30 | ADMIN-10 through ADMIN-14 |
 | AC-31 | ADMIN-17 |
 | AC-32 | ADMIN-18 |
 | AC-33 | ADMIN-15, ADMIN-16 |
-| AC-34 | Login.test.tsx, E2E authentication |
-| AC-35 | Login.test.tsx, StaffTicketQueue.test.tsx, UserManagement.test.tsx, role-navigation E2E checks |
+| AC-34 | `client/tests/lab-03/App.logout.test.tsx`, `e2e/lab-03/authenticated-flows.spec.ts` |
+| AC-35 | `client/tests/lab-03/App.logout.test.tsx`, `client/tests/lab-03/StaffTicketQueue.test.tsx`, `client/tests/lab-03/UserManagement.test.tsx`, `e2e/lab-03/authenticated-flows.spec.ts` |
 | AC-36 | responsive/visual QA, E2E responsive checks |
 
 
 ## 15. Test Status
 
-At specification stage:
+Final verified status:
 
-    Status: PLANNED
-
-After implementation, each test group shall be updated with:
-
-- actual test file path
-- number of tests
-- passing tests
-- failing tests
-- final status
-
-Example:
-
-| Test Group | File | Status |
+| Test area | Actual file/path | Result |
 |---|---|---|
-| Authentication | `server/tests/lab-03/auth.api.test.ts` | Planned |
-| Authorization | `server/tests/lab-03/authorization.api.test.ts` | Planned |
-| Staff Queue | `server/tests/lab-03/staff-queue.api.test.ts` | Planned |
-| Staff Ticket Detail | `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Planned |
-| Comments/Notes | `server/tests/lab-03/comments-notes.api.test.ts` | Planned |
-| Admin | `server/tests/lab-03/users-admin.api.test.ts` | Planned |
-| Login UI | `Login.test.tsx` | Planned |
-| Change Password UI | `ChangePassword.test.tsx` | Planned |
-| Staff Queue UI | `StaffTicketQueue.test.tsx` | Planned |
-| Staff Detail UI | `StaffTicketDetail.test.tsx` | Planned |
-| User Management UI | `UserManagement.test.tsx` | Planned |
-| Authentication E2E | `authentication.spec.ts` | Planned |
-| Staff Workflow E2E | `staff-ticket-flow.spec.ts` | Planned |
-| User Administration E2E | `user-administration.spec.ts` | Planned |
+| Server suite | `server/tests/lab-03/` and the existing server suites | 14 test files, 85 tests passed |
+| Client suite | `client/tests/` | 13 test files, 88 tests passed |
+| Authenticated E2E | `e2e/lab-03/authenticated-flows.spec.ts` | 14/14 passed |
+| Responsive E2E | `e2e/lab-03/responsive.spec.ts` | 16/16 passed |
+| Accessibility E2E | `e2e/lab-03/accessibility.spec.ts` | 3/3 passed |
+| TypeScript/typecheck | server and client project checks | Passed |
+| Client production build | `client/package.json` `build` script | Passed |
+| Migration regression | `server/tests/lab-03/migration-regression.integration.test.ts` | Included in the verified server suite |
+| Screenshot evidence | `artifacts/lab-03/screenshots/` | 27 screenshots available |
 
 
 ## 16. Final Release Test Requirement
@@ -900,6 +913,8 @@ Before Lab 3 is considered complete:
 - E2E IT Staff workflow passes;
 - E2E Administrator workflow passes;
 - responsive/visual inspection is complete;
-- final test output is collected from the `main` branch.
+- final test output is collected from the release/integration branch used for
+  the final verification. This is release-process intent, not a claim that the
+  current checkout is `main`.
 
 The final repository state is the source of truth for actual test status.
