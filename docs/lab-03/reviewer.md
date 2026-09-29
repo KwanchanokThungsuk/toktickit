@@ -15,7 +15,7 @@
 | [#57](https://github.com/KwanchanokThungsuk/toktickit/pull/57) | feature/23-admin-user-management | Approved |
 | [#58](https://github.com/KwanchanokThungsuk/toktickit/pull/58) | feature/24-admin-ticket-review | Approved |
 | [#60](https://github.com/KwanchanokThungsuk/toktickit/pull/60) | feature/25-final-ui-e2e | Approved |
-| Pending | feature/26-final-documentation | Pending peer review/approval |
+| [#61](https://github.com/KwanchanokThungsuk/toktickit/pull/61) | feature/26-final-documentation | Commented and Approved |
 
 
 
@@ -98,8 +98,9 @@ PR: [#60](https://github.com/KwanchanokThungsuk/toktickit/pull/60)
     The changes have been committed and pushed. Ready for re-review.
 
 **feature/26-final-documentation**
-- Reviewer comment I received: 
-- How I responded: 
+PR: [#61](https://github.com/KwanchanokThungsuk/toktickit/pull/61)
+- Reviewer comment I received: docs/lab-03/reviewer.md does not include the actual GitHub PR links/numbers required by the Lab 3 submission evidence.
+- How I responded: fixed kub. pls recheck 🫪
 
 PR: Pending (no PR for this branch is present in the repository history).
 
@@ -177,6 +178,7 @@ PR: Pending (no merge PR for this branch is present in the repository history).
     MIG-02 is already passing; this request is specifically about the missing MIG-01 migration-preservation evidence.
 - Partner's response: I have fixed the MIG01 test. pls check
 
-****
-- My comment: 
-- Partner's response: 
+**feature/21-docs-lab3-release**
+PR: [#52](https://github.com/Ttime52/toktickit/pull/52)
+- My comment: There is one documentation issue that needs to be corrected before approval: In docs/lab-03/reviewer.md, the PR #52 entry uses the wrong branch name. It should be feature/21-docs-lab3-release. 
+- Partner's response: fixed it. Moreover, I have added the authorization.api.test.ts according to lab 3 requirement. pls recheck kub.
