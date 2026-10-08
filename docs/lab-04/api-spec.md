@@ -65,15 +65,15 @@ Roles: IT Staff or Administrator, irrespective of Ticket Owner. Positive Ticket 
   "followUpNote": "Verify connectivity with the Requester.",
   "attachmentNotes": "See vpn-error.png.",
   "expectedTicketVersion": 4,
-  "requestKey": "optional-client-generated-key"
+  "requestKey": "required-client-generated-key"
 }
 ```
 
-Required: Action Description, boolean followUpRequired, and positive integer expectedTicketVersion. Optional status defaults DRAFT, only DRAFT/COMPLETED allowed at creation. An optional requestKey can support a practical uniqueness guard. Non-null assignee is a positive integer active IT Staff/Administrator. BR-06 text types/nonblank/dependencies and the project 2,000-character design limit apply. Completed creation sets Performed By and completedAt from authenticated server identity/time. Body fields outside this allowlist, including performedById/createdById/ticketId/date/time overrides, return `422 VALIDATION_ERROR`.
+Required: Action Description, boolean followUpRequired, positive integer expectedTicketVersion, and client-generated requestKey. The backend enforces uniqueness by Ticket, authenticated creator and requestKey. Optional status defaults DRAFT, only DRAFT/COMPLETED allowed at creation. Non-null assignee is a positive integer active IT Staff/Administrator. BR-06 text types/nonblank/dependencies and the project 2,000-character design limit apply. Completed creation sets Performed By and completedAt from authenticated server identity/time. Body fields outside this allowlist, including performedById/createdById/ticketId/date/time overrides, return `422 VALIDATION_ERROR`.
 
-In one ordinary database transaction, verify the Ticket version and active state, validate the assignee, insert the Action and advance Ticket version/updatedAt. Never update Ticket Owner. `201` returns `{action:<Action DTO>,ticketVersion:<new integer>}`. If a requestKey uniqueness guard is adopted, a duplicate key returns safe `409 DUPLICATE_ACTION`; otherwise the pending UI state is the primary protection. No client-supplied performer is accepted.
+In one ordinary database transaction, verify the Ticket version and active state and validate the assignee. If the Ticket/authenticated creator/requestKey combination already exists, return `200` with the existing Action and do not create another row. Otherwise insert the Action and advance Ticket version/updatedAt. The requestKey identifies the create operation; a deliberate new Action uses a new requestKey. Never update Ticket Owner. A successful new create returns `201` with `{action:<Action DTO>,ticketVersion:<new integer>}`. The authenticated creator is server-derived; no client-supplied creator or performer is accepted. Frontend pending/disabled-submit behavior is additional UX protection.
 
-Errors: `400` malformed JSON; `401/403` auth/role/CSRF; `404` missing Ticket; `422` validation/inactive assignee; `409 STALE_UPDATE`, `TICKET_NOT_ACTIVE` or duplicate conflict; safe `500`. On failure no Action or Ticket update commits.
+Errors: `400` malformed JSON; `401/403` auth/role/CSRF; `404` missing Ticket; `422` validation/inactive assignee; `409 STALE_UPDATE` or `TICKET_NOT_ACTIVE`; safe `500`. On failure no Action or Ticket update commits.
 
 ### 3.3 PATCH `/api/staff/tickets/:id/actions-taken/:actionId`
 
@@ -90,11 +90,11 @@ Roles: IT Staff or Administrator; require CSRF. Both IDs positive; require Actio
 }
 ```
 
-Draft allowlist: actionDescription, result, assignedToUserId, followUpRequired, followUpNote, attachmentNotes, status. Partial update merges current fields before cross-field validation. Draft→Completed requires nonblank Result and records authenticated completing user/time; Draft→Cancelled requires nonblank Result explaining cancellation, clears followUpRequired/note, keeps performer null. Result can be entered in the same request. Draft→Draft edits are allowed; unknown status `422`; terminal→any different status `409 INVALID_ACTION_TRANSITION`.
+Draft allowlist: actionDescription, result, assignedToUserId, followUpRequired, followUpNote, attachmentNotes, status. Partial update merges current fields before cross-field validation. Draft→Completed requires nonblank Result and records authenticated completing user/time; Draft→Cancelled requires nonblank Result explaining cancellation, clears followUpRequired/note, keeps performer null. Result can be entered in the same request. Draft→Draft edits are allowed; unknown status `422`. Completed and Cancelled Actions reject every PATCH with `409 ACTION_IMMUTABLE`; corrections or additional work require a new Action.
 
-Completed/Cancelled allowlist for corrections: actionDescription, result, followUpRequired, followUpNote, attachmentNotes. Preserve nonblank terminal Result. Cancelled always has false/null follow-up; setting true is `422`. Terminal assignee/attribution/time changes are `409 ACTION_FIELD_IMMUTABLE`; submitting server-owned fields on any Action is `422`. Matching current status is a harmless unchanged field on a text correction, but an otherwise empty/no-change patch is `422`. Completing another Action does not implicitly clear the original's follow-up flag.
+There is no Completed/Cancelled correction allowlist. Terminal status, Description, Result, Follow-Up fields, assignee, performer and timestamps are immutable. No Action DELETE endpoint exists.
 
-In one ordinary database transaction, check parent and Action versions, verify active Ticket, revalidate Draft assignee, validate merged state, update the Action and advance both versions/Ticket.updatedAt. `200` returns `{action:<DTO>,ticketVersion:<new integer>}`. Errors: `400`, `401/403`, `404`, `422`, `409 STALE_UPDATE|TICKET_NOT_ACTIVE|INVALID_ACTION_TRANSITION|ACTION_FIELD_IMMUTABLE`, `500`. No partial updates. A stale PATCH returns `409`; UI refreshes and asks the user to review before retrying.
+In one ordinary database transaction, check parent and Action versions, verify active Ticket, validate the Draft assignee, validate merged state, update the Draft and advance both versions/Ticket.updatedAt. `200` returns `{action:<DTO>,ticketVersion:<new integer>}`. Errors: `400`, `401/403`, `404`, `422`, `409 STALE_UPDATE|TICKET_NOT_ACTIVE|INVALID_ACTION_TRANSITION|ACTION_IMMUTABLE`, `500`. No partial updates. A stale PATCH returns `409`; UI refreshes and asks the user to review before retrying.
 
 ## 4. Ticket Workflow and Inherited Write Extensions
 
@@ -102,7 +102,7 @@ In one ordinary database transaction, check parent and Action versions, verify a
 
 Existing route; roles expand to IT Staff/Administrator. Require CSRF. No query. Body `{status:"RESOLVED",expectedVersion:6}` only. Unknown enum/missing or invalid version/body field `422`; malformed Ticket ID/missing Ticket `404`.
 
-Use the exhaustive [section 6 matrix](specification.md#6-ticket-status-transition-matrix). In one ordinary database transaction verify version, permitted edge and BR-13 resolution gate. Forbidden edge gives `409 INVALID_STATUS_TRANSITION`; failed gate gives `409 RESOLUTION_BLOCKED` with safe reason, not other users' data. Resolving records backend resolvedAt; closure preserves it; reopen preserves historical timestamp. Cancelling updates Draft Actions with Result “Cancelled because the Ticket was cancelled.” and false/null follow-up; terminal Actions stay unchanged.
+Use the exhaustive [section 6 matrix](specification.md#6-ticket-status-transition-matrix). In one ordinary database transaction verify version, permitted edge and the BR-13 resolution gate: at least one Completed Action with a nonblank Result and no Draft Actions. Forbidden edge gives `409 INVALID_STATUS_TRANSITION`; failed gate gives `409 RESOLUTION_BLOCKED` with safe reason, not other users' data. Resolving records backend resolvedAt; closure preserves it; reopen preserves historical timestamp. Cancelling updates Draft Actions with Result “Cancelled because the Ticket was cancelled.” and false/null follow-up; terminal Actions stay unchanged.
 
 `200` extends existing `{id,currentStatus}` with `{version,updatedAt,resolvedAt}`. Failure `400/401/403/404/409/422/500`; all rejected writes leave versions, Actions and timestamps unchanged. Legacy already-Resolved Tickets may close without Actions, but a subsequent new entry to Resolved must satisfy the gate.
 
@@ -208,7 +208,7 @@ UI hash routes carry these query values and translate them to backend params; ch
 | 401 | `UNAUTHORIZED`, missing/expired/inactive session |
 | 403 | `FORBIDDEN`, `PASSWORD_CHANGE_REQUIRED`, `CSRF_INVALID`; no protected payload |
 | 404 | `NOT_FOUND`, malformed/missing Ticket/Action or Requester-unowned Ticket; generic indistinguishable message |
-| 409 | `STALE_UPDATE`, `RESOLUTION_BLOCKED`, `INVALID_STATUS_TRANSITION`, `INVALID_ACTION_TRANSITION`, `ACTION_FIELD_IMMUTABLE`, `TICKET_NOT_ACTIVE`, `DUPLICATE_ACTION`, `OWNER_ALREADY_ASSIGNED`, inherited indication/account conflicts |
+| 409 | `STALE_UPDATE`, `RESOLUTION_BLOCKED`, `INVALID_STATUS_TRANSITION`, `INVALID_ACTION_TRANSITION`, `ACTION_IMMUTABLE`, `TICKET_NOT_ACTIVE`, `OWNER_ALREADY_ASSIGNED`, inherited indication/account conflicts |
 | 422 | `VALIDATION_ERROR`, `INVALID_QUERY`, `INVALID_STATUS` and inherited owner/priority validation; preserve current project distinction from 400 |
 | 500 | Exactly existing `{error:{code:"INTERNAL_ERROR",message:"Internal server error"}}`; details logged server-side only |
 
@@ -220,6 +220,6 @@ Integer versions start at 1 for legacy Tickets/new Actions. Action/workflow writ
 
 The backend checks the parent version for Action, status, owner and priority writes, so competing browser edits fail safely instead of silently overwriting. Existing account safety rules remain enforced by Administrator endpoints.
 
-The UI disables duplicate clicks while a create is pending. If experience shows retries can still create duplicates, add a simple unique request key constraint and return `409 DUPLICATE_ACTION`; otherwise require a reload after an unknown timeout.
+The UI disables duplicate clicks while a create is pending. The required requestKey uniqueness check is the correctness mechanism: a retry with the same Ticket, authenticated creator and requestKey returns the existing Action with 200; the pending UI state remains additional protection.
 
 Dashboard counts and previews use one backend query operation and one server `asOf`; list pages are ordinary current reads using the returned window. Mutation responses refresh detail and dashboard data; no external notifications or background analytics are added.
