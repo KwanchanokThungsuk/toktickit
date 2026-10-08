@@ -1,4 +1,4 @@
-# Lab 2 — AI Use and Reflection  (fill this in)
+# Lab 3 — AI Use and Reflection  (fill this in)
 
 **LLM/agent used:** Gemini codex gihub copilot
 
