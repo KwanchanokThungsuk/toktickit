@@ -40,23 +40,32 @@ enum UserRole {
   ADMINISTRATOR
 }
 
-model User {
-  id                  Int          @id @default(autoincrement())
-  name                String
-  email               String       @unique
-  passwordHash        String
-  role                UserRole
-  mustChangePassword  Boolean      @default(true)
-  isActive            Boolean      @default(true)
-  createdAt            DateTime     @default(now())
+enum ActionStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
 
-  tickets             Ticket[]
-  ownedTickets        Ticket[] @relation("TicketOwner")
-  uploadedAttachments Attachment[] @relation("AttachmentUploader")
-  removedAttachments  Attachment[] @relation("AttachmentRemover")
-  resolutionIndications Ticket[] @relation("RequesterResolutionIndication")
-  publicComments      PublicComment[]
-  internalNotes       InternalNote[]
+model User {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  role               UserRole
+  mustChangePassword Boolean  @default(true)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  tickets               Ticket[]
+  ownedTickets          Ticket[]        @relation("TicketOwner")
+  uploadedAttachments   Attachment[]    @relation("AttachmentUploader")
+  removedAttachments    Attachment[]    @relation("AttachmentRemover")
+  resolutionIndications Ticket[]        @relation("RequesterResolutionIndication")
+  publicComments        PublicComment[]
+  internalNotes         InternalNote[]
+  createdActions        ActionTaken[]   @relation("ActionCreator")
+  performedActions      ActionTaken[]   @relation("ActionPerformer")
+  assignedActions       ActionTaken[]   @relation("ActionAssignee")
 }
 
 model Category {
@@ -76,31 +85,62 @@ model RelatedSystem {
 }
 
 model Ticket {
-  id                Int             @id @default(autoincrement())
-  ticketNumber      String          @unique
-  requesterId       Int
-  requester         User   @relation(fields: [requesterId], references: [id], onDelete: Restrict)
-  categoryId        Int
-  category          Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  relatedSystemId   Int
-  relatedSystem     RelatedSystem   @relation(fields: [relatedSystemId], references: [id], onDelete: Restrict)
-  summary           String
-  description       String          @db.Text
-  requestedPriority Priority        @default(MEDIUM)
-  itPriority       ItPriority      @default(MEDIUM)
-  currentStatus     TicketStatus    @default(NEW)
-  assignedToUserId  Int?
-  assignedTo        User?           @relation("TicketOwner", fields: [assignedToUserId], references: [id], onDelete: SetNull)
-  requesterResolutionIndicatedAt DateTime?
+  id                                   Int             @id @default(autoincrement())
+  ticketNumber                         String          @unique
+  requesterId                          Int
+  requester                            User            @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+  categoryId                           Int
+  category                             Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  relatedSystemId                      Int
+  relatedSystem                        RelatedSystem   @relation(fields: [relatedSystemId], references: [id], onDelete: Restrict)
+  summary                              String
+  description                          String          @db.Text
+  requestedPriority                    Priority        @default(MEDIUM)
+  itPriority                           ItPriority      @default(MEDIUM)
+  currentStatus                        TicketStatus    @default(NEW)
+  assignedToUserId                     Int?
+  assignedTo                           User?           @relation("TicketOwner", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  requesterResolutionIndicatedAt       DateTime?
   requesterResolutionIndicatedByUserId Int?
-  requesterResolutionIndicatedByUser User? @relation("RequesterResolutionIndication", fields: [requesterResolutionIndicatedByUserId], references: [id], onDelete: SetNull)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  attachments       Attachment[]
-  publicComments    PublicComment[]
-  internalNotes     InternalNote[]
+  requesterResolutionIndicatedByUser   User?           @relation("RequesterResolutionIndication", fields: [requesterResolutionIndicatedByUserId], references: [id], onDelete: SetNull)
+  createdAt                            DateTime        @default(now())
+  updatedAt                            DateTime        @updatedAt
+  version                              Int             @default(1)
+  resolvedAt                           DateTime?
+  attachments                          Attachment[]
+  publicComments                       PublicComment[]
+  internalNotes                        InternalNote[]
+  actionsTaken                         ActionTaken[]
 
   @@index([requesterId, createdAt(sort: Desc)])
+}
+
+model ActionTaken {
+  id                Int          @id @default(autoincrement())
+  ticketId          Int
+  ticket            Ticket       @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actionDateTime    DateTime     @default(now())
+  actionDescription String       @db.Text
+  result            String?      @db.Text
+  createdById       Int
+  creator           User         @relation("ActionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  performedById     Int?
+  performer         User?        @relation("ActionPerformer", fields: [performedById], references: [id], onDelete: Restrict)
+  assignedToUserId  Int?
+  assignee          User?        @relation("ActionAssignee", fields: [assignedToUserId], references: [id], onDelete: Restrict)
+  status            ActionStatus @default(DRAFT)
+  followUpRequired  Boolean
+  followUpNote      String?      @db.Text
+  attachmentNotes   String?      @db.Text
+  completedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  version           Int          @default(1)
+  requestKey        String
+
+  @@unique([ticketId, createdById, requestKey])
+  @@index([ticketId, actionDateTime, id])
+  @@index([performedById, completedAt, id])
 }
 
 model PublicComment {
@@ -130,20 +170,20 @@ model InternalNote {
 }
 
 model Attachment {
-  id               Int            @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   ticketId         Int
-  ticket           Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket           Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   originalFilename String
   storedFilename   String
   contentType      String
   fileSize         Int
   uploadedById     Int
-  uploadedBy       User  @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
-  uploadedAt       DateTime       @default(now())
-  isRemoved        Boolean        @default(false)
+  uploadedBy       User      @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  uploadedAt       DateTime  @default(now())
+  isRemoved        Boolean   @default(false)
   removedAt        DateTime?
   removedById      Int?
-  removedBy        User? @relation("AttachmentRemover", fields: [removedById], references: [id], onDelete: Restrict)
+  removedBy        User?     @relation("AttachmentRemover", fields: [removedById], references: [id], onDelete: Restrict)
   removedReason    String?
 
   @@index([ticketId, isRemoved])
