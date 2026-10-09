@@ -15,6 +15,19 @@ describe("Lab 4 seed repeatability", () => {
       await run("npx", ["tsx", "prisma/seed.ts"], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: url } });
       const prisma = new PrismaClient({ datasources: { db: { url } } });
       try {
+        const seededStatuses = await prisma.ticket.findMany({
+          where: { ticketNumber: { in: [
+            "TKT-2026-000001", "TKT-2026-000002", "TKT-2026-000003", "TKT-2026-000004",
+            "TKT-2026-000005", "TKT-2026-000006", "TKT-2026-000007", "TKT-2026-000008",
+          ] } },
+          select: { currentStatus: true },
+        });
+        expect(new Set(seededStatuses.map((row) => row.currentStatus))).toEqual(new Set([
+          "NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED", "RESOLVED", "CLOSED", "CANCELLED",
+        ]));
+        expect(await prisma.actionTaken.count({ where: { ticketId: (await prisma.ticket.findUniqueOrThrow({ where: { ticketNumber: "TKT-2026-000002" } })).id } })).toBe(0);
+        expect(await prisma.actionTaken.count({ where: { ticketId: (await prisma.ticket.findUniqueOrThrow({ where: { ticketNumber: "TKT-2026-000001" } })).id } })).toBe(2);
+        expect(await prisma.actionTaken.count({ where: { ticketId: (await prisma.ticket.findUniqueOrThrow({ where: { ticketNumber: "TKT-2026-000003" } })).id } })).toBe(1);
         const user = await prisma.user.findUniqueOrThrow({ where: { email: "alice.smith@example.com" } });
         const ticket = await prisma.ticket.findUniqueOrThrow({ where: { ticketNumber: "TKT-2026-000001" } });
         const action = await prisma.actionTaken.findFirstOrThrow({ where: { requestKey: "lab4-action-001" } });

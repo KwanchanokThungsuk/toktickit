@@ -13,6 +13,20 @@ async function freshTicket(requesterId = requester.id) {
   const n = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return prisma.ticket.create({ data: { ticketNumber: `TKT-LAB4-${n}`, requesterId, categoryId: category.id, relatedSystemId: system.id, summary: "Isolated Actions fixture", description: "Isolated Actions fixture", currentStatus: "IN_PROGRESS" } });
 }
+function expectActionDto(action: any) {
+  expect(Object.keys(action).sort()).toEqual([
+    "actionDateTime", "actionDescription", "assignedTo", "attachmentNotes", "completedAt",
+    "createdAt", "createdBy", "followUpNote", "followUpRequired", "id", "performedBy",
+    "result", "status", "ticketId", "updatedAt", "version",
+  ].sort());
+  expect(action.requestKey).toBeUndefined();
+  expect(action.createdById).toBeUndefined();
+  expect(action.performedById).toBeUndefined();
+  expect(action.assignedToUserId).toBeUndefined();
+  expect(action.creator).toBeUndefined();
+  expect(action.performer).toBeUndefined();
+  expect(action.assignee).toBeUndefined();
+}
 
 describe("Lab 4 Actions Taken API", () => {
   beforeAll(async () => {
@@ -43,8 +57,12 @@ describe("Lab 4 Actions Taken API", () => {
     expect(draft.status).toBe(201); expect(draft.body.action.result).toBeNull();
     const retry = await agent.post(`/api/staff/tickets/${ticket.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "Different body is still same logical create", result: "ignored", followUpRequired: true, followUpNote: "ignored", expectedTicketVersion: 1, requestKey: "test-draft-1" });
     expect(retry.status).toBe(200); expect(retry.body.action.id).toBe(draft.body.action.id);
+    expectActionDto(retry.body.action);
     const completed = await agent.post(`/api/staff/tickets/${ticket.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "Completed work", result: "Done", followUpRequired: false, expectedTicketVersion: 2, requestKey: "test-completed-1", status: "COMPLETED" });
-    expect(completed.status).toBe(201); expect(completed.body.action.performer.id).toBe(staff.id);
+    expect(completed.status).toBe(201); expect(completed.body.action.performedBy.id).toBe(staff.id);
+    expect(completed.body.action.createdBy.id).toBe(staff.id);
+    expect(completed.body.action.assignedTo).toBeNull();
+    expectActionDto(completed.body.action);
     expect(await prisma.actionTaken.count({ where: { ticketId: ticket.id, requestKey: "test-draft-1" } })).toBe(1);
   });
 
@@ -126,9 +144,9 @@ describe("Lab 4 Actions Taken API", () => {
     const isolated = await freshTicket(); const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
     const created = await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "draft", followUpRequired: false, expectedTicketVersion: 1, requestKey: `lifecycle-${isolated.id}` });
     const edit = await agent.patch(`/api/staff/tickets/${isolated.id}/actions-taken/${created.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: 2, expectedVersion: 1, actionDescription: "edited", assignedToUserId: admin.id });
-    expect(edit.status).toBe(200); expect(edit.body.action.version).toBe(2);
+    expect(edit.status).toBe(200); expect(edit.body.action.version).toBe(2); expectActionDto(edit.body.action);
     const complete = await agent.patch(`/api/staff/tickets/${isolated.id}/actions-taken/${created.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: 3, expectedVersion: 2, status: "COMPLETED", result: "completed" });
-    expect(complete.status).toBe(200); expect(complete.body.action.performer.id).toBe(staff.id); expect(complete.body.action.completedAt).toBeTruthy();
+    expect(complete.status).toBe(200); expect(complete.body.action.performedBy.id).toBe(staff.id); expect(complete.body.action.completedAt).toBeTruthy();
     for (const bad of [requester.id, inactive.id, "abc", 0, -1]) {
       const fresh = await freshTicket(); const made = await agent.post(`/api/staff/tickets/${fresh.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "assign", followUpRequired: false, expectedTicketVersion: 1, requestKey: `assign-${fresh.id}` });
       expect((await agent.patch(`/api/staff/tickets/${fresh.id}/actions-taken/${made.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: 2, expectedVersion: 1, assignedToUserId: bad })).status).toBe(422);
@@ -147,7 +165,7 @@ describe("Lab 4 Actions Taken API", () => {
   it("returns Actions in stable order with pagination", async () => {
     const isolated = await freshTicket(); const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
     for (const [index, key] of ["order-a", "order-b", "order-c"].entries()) await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: `order ${index}`, followUpRequired: false, expectedTicketVersion: index + 1, requestKey: key });
-    const page = await agent.get(`/api/tickets/${isolated.id}/actions-taken?page=1&pageSize=2`); expect(page.status).toBe(200); expect(page.body.items).toHaveLength(2); expect(page.body.totalItems).toBe(3);
+    const page = await agent.get(`/api/tickets/${isolated.id}/actions-taken?page=1&pageSize=2`); expect(page.status).toBe(200); expect(page.body.items).toHaveLength(2); expect(page.body.totalItems).toBe(3); expectActionDto(page.body.items[0]);
     expect((await agent.get(`/api/tickets/${isolated.id}/actions-taken?page=0`)).status).toBe(422); expect((await agent.get(`/api/tickets/${isolated.id}/actions-taken?pageSize=101`)).status).toBe(422);
   });
 });

@@ -158,6 +158,11 @@ async function main() {
       { ticketNumber: "TKT-2026-000001", requesterId: seededRequesters[0].id, summary: "Cannot access campus email", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "OPEN" as const, assignedToUserId: seededStaff[0].id },
       { ticketNumber: "TKT-2026-000002", requesterId: seededRequesters[1].id, summary: "Laptop connectivity issue", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "NEW" as const, assignedToUserId: null },
       { ticketNumber: "TKT-2026-000003", requesterId: seededRequesters[0].id, summary: "VPN access request", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "IN_PROGRESS" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000004", requesterId: seededRequesters[1].id, summary: "Waiting for requester details", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "WAITING_FOR_REQUESTER" as const, assignedToUserId: seededStaff[0].id },
+      { ticketNumber: "TKT-2026-000005", requesterId: seededRequesters[0].id, summary: "Reopened service request", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "REOPENED" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000006", requesterId: seededRequesters[1].id, summary: "Resolved software issue", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "RESOLVED" as const, assignedToUserId: seededStaff[0].id },
+      { ticketNumber: "TKT-2026-000007", requesterId: seededRequesters[0].id, summary: "Closed access request", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "CLOSED" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000008", requesterId: seededRequesters[1].id, summary: "Cancelled duplicate request", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "CANCELLED" as const, assignedToUserId: null },
     ];
     for (const ticket of queueTickets) {
       const existingTicket = await prisma.ticket.findUnique({ where: { ticketNumber: ticket.ticketNumber }, select: { id: true } });

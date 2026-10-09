@@ -19,7 +19,30 @@ function id(value: unknown) { const n = Number(value); return Number.isInteger(n
 function text(value: unknown, max = MAX_TEXT) { return typeof value === "string" && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null; }
 function optionalText(value: unknown, max = MAX_NOTE) { if (value == null || (typeof value === "string" && value.trim() === "")) return null; return typeof value === "string" && value.trim().length <= max ? value.trim() : undefined; }
 function invalid(res: Response, message: string) { return res.status(422).json({ error: { code: "VALIDATION_ERROR", message } }); }
-function safeAction(action: any) { return action; }
+function safeUser(user: any) {
+  return user ? { id: user.id, name: user.name, role: user.role } : null;
+}
+
+function safeAction(action: any) {
+  return {
+    id: action.id,
+    ticketId: action.ticketId,
+    actionDateTime: action.actionDateTime,
+    actionDescription: action.actionDescription,
+    result: action.result,
+    status: action.status,
+    createdBy: safeUser(action.creator),
+    performedBy: safeUser(action.performer),
+    assignedTo: safeUser(action.assignee),
+    followUpRequired: action.followUpRequired,
+    followUpNote: action.followUpNote,
+    attachmentNotes: action.attachmentNotes,
+    completedAt: action.completedAt,
+    createdAt: action.createdAt,
+    updatedAt: action.updatedAt,
+    version: action.version,
+  };
+}
 
 router.get("/api/tickets/:id/actions-taken", async (req: Request, res: Response) => {
   if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
@@ -84,14 +107,14 @@ router.post("/api/staff/tickets/:id/actions-taken", async (req: Request, res: Re
   } catch (e: any) {
     if (e?.code === "STALE_UPDATE") {
       const existing = await getPrisma().actionTaken.findUnique({ where: { ticketId_createdById_requestKey: { ticketId, createdById: creatorId, requestKey } }, include: actionInclude });
-      if (existing) return res.status(200).json({ action: existing, ticketVersion: (await getPrisma().ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { version: true } })).version });
+      if (existing) return res.status(200).json({ action: safeAction(existing), ticketVersion: (await getPrisma().ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { version: true } })).version });
       return res.status(409).json({ error: { code: "STALE_UPDATE", message: "The Ticket changed. Refresh and retry." } });
     }
     if (e?.code === "TICKET_NOT_ACTIVE") return res.status(409).json({ error: { code: "TICKET_NOT_ACTIVE", message: "Ticket is not active." } });
     if (e?.code === "INVALID_ASSIGNEE") return invalid(res, "Assignee must be an active IT Staff or Administrator");
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       const existing = await getPrisma().actionTaken.findUnique({ where: { ticketId_createdById_requestKey: { ticketId, createdById: creatorId, requestKey } }, include: actionInclude });
-      if (existing) return res.status(200).json({ action: existing, ticketVersion: (await getPrisma().ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { version: true } })).version });
+      if (existing) return res.status(200).json({ action: safeAction(existing), ticketVersion: (await getPrisma().ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { version: true } })).version });
     }
     if (e?.code === "NOT_FOUND") return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found" } });
     return internalServerError(res, "ACTION CREATE ERROR:", e);
@@ -137,7 +160,7 @@ router.patch("/api/staff/tickets/:id/actions-taken/:actionId", async (req: Reque
       const action = await tx.actionTaken.findUniqueOrThrow({ where: { id: actionId }, include: actionInclude });
       return { action, ticketVersion: body.expectedTicketVersion + 1 };
     });
-    return res.status(200).json(result);
+    return res.status(200).json({ action: safeAction(result.action), ticketVersion: result.ticketVersion });
   } catch (e: any) {
     const codes: Record<string, [number, string]> = { NOT_FOUND: [404, "NOT_FOUND"], ACTION_IMMUTABLE: [409, "ACTION_IMMUTABLE"], TICKET_NOT_ACTIVE: [409, "TICKET_NOT_ACTIVE"], STALE_UPDATE: [409, "STALE_UPDATE"], INVALID_ACTION_TRANSITION: [409, "INVALID_ACTION_TRANSITION"], INVALID_ASSIGNEE: [422, "VALIDATION_ERROR"], VALIDATION_ERROR: [422, "VALIDATION_ERROR"] };
     if (e?.code && codes[e.code]) return res.status(codes[e.code][0]).json({ error: { code: codes[e.code][1], message: e.code.replaceAll("_", " ") } });
