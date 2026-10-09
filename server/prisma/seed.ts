@@ -146,8 +146,6 @@ async function main() {
         passwordHash: hashPassword(initialPassword),
         mustChangePassword: true,
       } });
-    } else {
-      await prisma.user.update({ where: { id: existing.id }, data: { name: user.name, role: user.role, isActive: user.isActive } });
     }
   }
 
@@ -161,7 +159,12 @@ async function main() {
       { ticketNumber: "TKT-2026-000002", requesterId: seededRequesters[1].id, summary: "Laptop connectivity issue", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "NEW" as const, assignedToUserId: null },
       { ticketNumber: "TKT-2026-000003", requesterId: seededRequesters[0].id, summary: "VPN access request", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "IN_PROGRESS" as const, assignedToUserId: seededStaff[1].id },
     ];
-    for (const ticket of queueTickets) await prisma.ticket.upsert({ where: { ticketNumber: ticket.ticketNumber }, update: ticket, create: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+    for (const ticket of queueTickets) {
+      const existingTicket = await prisma.ticket.findUnique({ where: { ticketNumber: ticket.ticketNumber }, select: { id: true } });
+      if (!existingTicket) {
+        await prisma.ticket.create({ data: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+      }
+    }
 
     const seededTickets = await prisma.ticket.findMany({
       where: { ticketNumber: { in: queueTickets.map(({ ticketNumber }) => ticketNumber) } },
@@ -179,6 +182,63 @@ async function main() {
       }
       if (!await prisma.internalNote.findFirst({ where: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } })) {
         await prisma.internalNote.create({ data: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } });
+      }
+    }
+
+    const actionFixtures = [
+      {
+        ticketId: seededTickets[0]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-001",
+        actionDescription: "Reviewed the reported service issue.",
+        result: null,
+        status: "DRAFT" as const,
+        followUpRequired: true,
+        followUpNote: "Confirm the result with the requester.",
+        assignedToUserId: seededStaff[1].id,
+      },
+      {
+        ticketId: seededTickets[0]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-002",
+        actionDescription: "Restarted the affected service.",
+        result: "Service restarted successfully.",
+        status: "COMPLETED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: staffAuthor.id,
+      },
+      {
+        ticketId: seededTickets[2]?.id,
+        createdById: seededStaff[1].id,
+        requestKey: "lab4-action-003",
+        actionDescription: "Cancelled duplicate investigation.",
+        result: "Cancelled because the duplicate Ticket was closed.",
+        status: "CANCELLED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: null,
+      },
+    ];
+    for (const fixture of actionFixtures) {
+      if (!fixture.ticketId) continue;
+      const existing = await prisma.actionTaken.findUnique({
+        where: { ticketId_createdById_requestKey: { ticketId: fixture.ticketId, createdById: fixture.createdById, requestKey: fixture.requestKey } },
+      });
+      if (!existing) {
+        await prisma.actionTaken.create({ data: {
+          ticketId: fixture.ticketId,
+          createdById: fixture.createdById,
+          requestKey: fixture.requestKey,
+          actionDescription: fixture.actionDescription,
+          result: fixture.result,
+          status: fixture.status,
+          followUpRequired: fixture.followUpRequired,
+          followUpNote: fixture.followUpNote,
+          assignedToUserId: fixture.assignedToUserId,
+          performedById: fixture.status === "COMPLETED" ? fixture.createdById : null,
+          completedAt: fixture.status === "COMPLETED" ? new Date("2026-10-01T09:00:00.000Z") : null,
+        } });
       }
     }
   }

@@ -16,6 +16,7 @@ import commentsNotesRouter from "./routes/comments-notes.js";
 import authRouter from "./routes/auth.js";
 import { attachAuth, authenticatedUserId, requireCsrf, requireRequester } from "./auth.js";
 import userManagementRouter from "./user-management.js";
+import actionsTakenRouter from "./routes/actions-taken.js";
 
 export const app = express();
 
@@ -33,6 +34,7 @@ app.use(staffTicketsRouter);
 app.use(staffTicketDetailRouter);
 app.use(commentsNotesRouter);
 app.use(userManagementRouter);
+app.use(actionsTakenRouter);
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const MAX_ACTIVE_ATTACHMENTS = 5;
