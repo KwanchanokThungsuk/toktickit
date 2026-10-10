@@ -22,6 +22,11 @@ interface Filters {
   relatedSystemId: string;
   requestedPriority: "" | TicketPriority;
   currentStatus: "" | TicketStatus;
+  statusGroup: "" | "active";
+  updatedFrom: string;
+  updatedTo: string;
+  recentlyResolvedFrom: string;
+  recentlyResolvedTo: string;
 }
 
 const initialFilters: Filters = {
@@ -29,6 +34,11 @@ const initialFilters: Filters = {
   relatedSystemId: "",
   requestedPriority: "",
   currentStatus: "",
+  statusGroup: "",
+  updatedFrom: "",
+  updatedTo: "",
+  recentlyResolvedFrom: "",
+  recentlyResolvedTo: "",
 };
 
 function formatDate(value: string) {
@@ -105,7 +115,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-export default function MyTickets() {
+export default function MyTickets({ routeQuery = {} }: { routeQuery?: Record<string, string> }) {
   const isMobile = useIsMobile();
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -122,6 +132,13 @@ export default function MyTickets() {
   const [error, setError] = useState("");
   const [referenceError, setReferenceError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (Object.keys(routeQuery).length === 0) return;
+    setSearch(routeQuery.search ?? "");
+    setFilters({ categoryId: routeQuery.categoryId ?? "", relatedSystemId: routeQuery.relatedSystemId ?? "", requestedPriority: (routeQuery.requestedPriority as "" | TicketPriority) ?? "", currentStatus: (routeQuery.currentStatus as "" | TicketStatus) ?? "", statusGroup: routeQuery.statusGroup === "active" ? "active" : "", updatedFrom: routeQuery.updatedFrom ?? "", updatedTo: routeQuery.updatedTo ?? "", recentlyResolvedFrom: routeQuery.recentlyResolvedFrom ?? "", recentlyResolvedTo: routeQuery.recentlyResolvedTo ?? "" });
+    setSortBy((routeQuery.sortBy as TicketSortBy) ?? "createdAt"); setSortOrder((routeQuery.sortOrder as TicketSortOrder) ?? "desc"); setPage(1);
+  }, [JSON.stringify(routeQuery)]);
 
   useEffect(() => {
     let active = true;
@@ -147,6 +164,11 @@ export default function MyTickets() {
       relatedSystemId: filters.relatedSystemId,
       requestedPriority: filters.requestedPriority || undefined,
       currentStatus: filters.currentStatus || undefined,
+      statusGroup: filters.statusGroup || undefined,
+      updatedFrom: filters.updatedFrom || undefined,
+      updatedTo: filters.updatedTo || undefined,
+      recentlyResolvedFrom: filters.recentlyResolvedFrom || undefined,
+      recentlyResolvedTo: filters.recentlyResolvedTo || undefined,
       sortBy,
       sortOrder,
       page,
@@ -203,8 +225,10 @@ export default function MyTickets() {
         <FormSelect id="ticket-category" label="Category" value={filters.categoryId} onChange={(event) => updateFilter("categoryId", event.target.value)} options={[{ value: "", label: "All Categories" }, ...categories.map((item) => ({ value: String(item.id), label: item.name }))]} />
         <FormSelect id="ticket-system" label="Related System" value={filters.relatedSystemId} onChange={(event) => updateFilter("relatedSystemId", event.target.value)} options={[{ value: "", label: "All Related Systems" }, ...relatedSystems.map((item) => ({ value: String(item.id), label: item.name }))]} />
         <FormSelect id="ticket-priority" label="Requested Priority" value={filters.requestedPriority} onChange={(event) => updateFilter("requestedPriority", event.target.value)} options={[{ value: "", label: "All Priorities" }, { value: "LOW", label: "Low" }, { value: "MEDIUM", label: "Medium" }, { value: "HIGH", label: "High" }]} />
-        <FormSelect id="ticket-status" label="Current Status" value={filters.currentStatus} onChange={(event) => updateFilter("currentStatus", event.target.value)} options={[{ value: "", label: "All Statuses" }, { value: "NEW", label: "New" }]} />
+        <FormSelect id="ticket-status" label="Current Status" value={filters.currentStatus} onChange={(event) => updateFilter("currentStatus", event.target.value)} options={[{ value: "", label: "All Statuses" }, ...["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED", "RESOLVED", "CLOSED", "CANCELLED"].map(value => ({ value, label: value.split("_").map(word => word[0] + word.slice(1).toLowerCase()).join(" ") }))]} />
       </section>
+
+      {filters.statusGroup || filters.updatedFrom || filters.recentlyResolvedFrom ? <p className="my-tickets__active-filter" role="status">Dashboard filter is active. <button type="button" onClick={clearFilters}>Clear filters</button></p> : null}
 
       {isLoading && !hasLoaded ? <TicketListSkeleton /> : error ? <ErrorState title="Unable to load your tickets" message={error} action={<button type="button" className="btn zg-button zg-button--secondary" onClick={() => setRetryCount((count) => count + 1)}>Retry</button>} /> : meta.totalItems === 0 && !hasActiveFilters ? <Empty title="You have not created any tickets yet." message="Create your first support request to get help from the IT team." action={createTicketAction} /> : meta.totalItems === 0 ? <Empty title="No tickets match your search or filters." message="Try a different search or remove a filter." action={<button type="button" className="btn zg-button zg-button--secondary" onClick={clearFilters}>Clear Filters</button>} /> : (
         <>

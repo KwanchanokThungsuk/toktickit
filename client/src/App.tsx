@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "./components/AppShell";
 import CreateTicket from "./components/CreateTicket";
 import MyTickets from "./components/MyTickets";
@@ -10,30 +10,31 @@ import StaffTicketDetail from "./components/StaffTicketDetail";
 import UserManagement from "./components/UserManagement";
 import AdminTicketInspection from "./components/AdminTicketInspection";
 import ErrorState from "./components/ErrorState";
+import { DashboardActions, RequesterDashboard, StaffDashboard } from "./components/Dashboards";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/theme.css";
 import { currentUser, logout, type AuthUser } from "./api";
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
-  const [view, setView] = useState(() => window.location.hash || "#/tickets");
-  const previousAuthenticatedUserId = useRef<number | null>(null);
+  const [view, setView] = useState(() => window.location.hash || "#/dashboard");
   useEffect(() => { currentUser().then(setUser).catch(() => setUser(null)); }, []);
   useEffect(() => {
-    const onHashChange = () => setView(window.location.hash || "#/tickets");
+    const onHashChange = () => setView(window.location.hash || "#/dashboard");
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
   useEffect(() => {
     if (!user || user.mustChangePassword) return;
-    const isStaffRoute = view === "#/staff/tickets" || /^#\/staff\/tickets\/\d+$/.test(view);
-    const isRequesterRoute = view === "#/tickets" || view === "#/tickets/new" || /^#\/tickets\/\d+$/.test(view);
-    const defaultRoute = user.role === "IT_STAFF" ? "#/staff/tickets" : user.role === "REQUESTER" ? "#/tickets" : "#/admin/users";
-    const isAdminRoute = view === "#/admin/users" || /^#\/tickets\/\d+$/.test(view);
-    const switchedAuthenticatedUser = previousAuthenticatedUserId.current !== null && previousAuthenticatedUserId.current !== user.id;
-    previousAuthenticatedUserId.current = user.id;
-    const directUnauthorizedStaffRoute = !switchedAuthenticatedUser && user.role !== "IT_STAFF" && isStaffRoute;
-    const shouldNormalizeRoute = (user.role === "IT_STAFF" && !isStaffRoute) || (!directUnauthorizedStaffRoute && (switchedAuthenticatedUser || !isStaffRoute) && ((user.role === "REQUESTER" && !isRequesterRoute) || (user.role === "ADMINISTRATOR" && !isAdminRoute)));
+    const path = view.split("?")[0];
+    const isStaffRoute = path === "#/staff/dashboard" || path === "#/staff/tickets" || path === "#/staff/dashboard/actions" || /^#\/staff\/tickets\/\d+$/.test(path);
+    const isRequesterRoute = path === "#/dashboard" || path === "#/tickets" || path === "#/tickets/new" || /^#\/tickets\/\d+$/.test(path);
+    const defaultRoute = user.role === "IT_STAFF" || user.role === "ADMINISTRATOR" ? "#/staff/dashboard" : "#/dashboard";
+    const isAdminRoute = path === "#/staff/dashboard" || path === "#/staff/tickets" || path === "#/staff/dashboard/actions" || path === "#/admin/users" || /^#\/staff\/tickets\/\d+$/.test(path) || /^#\/tickets\/\d+$/.test(path);
+    const directUnauthorizedStaffRoute = user.role === "REQUESTER" && isStaffRoute;
+    const directUnauthorizedAdminRoute = user.role !== "ADMINISTRATOR" && path === "#/admin/users";
+    const validRoute = user.role === "REQUESTER" ? isRequesterRoute : user.role === "IT_STAFF" ? isStaffRoute : isAdminRoute;
+    const shouldNormalizeRoute = !directUnauthorizedStaffRoute && !directUnauthorizedAdminRoute && !validRoute;
     if (shouldNormalizeRoute) {
       if (window.location.hash !== defaultRoute) window.location.hash = defaultRoute;
       setView(defaultRoute);
@@ -42,20 +43,26 @@ export default function App() {
   if (user === undefined) return <p>Loading…</p>;
   if (!user) return <Login onLogin={setUser} />;
   if (user.mustChangePassword) return <ChangePassword user={user} onChanged={() => setUser({ ...user, mustChangePassword: false })} />;
-  const showingCreateTicket = view === "#/tickets/new";
-  const showingQueue = view === "#/staff/tickets";
-  const staffDetailMatch = view.match(/^#\/staff\/tickets\/(\d+)$/);
-  const detailMatch = view.match(/^#\/tickets\/(\d+)$/);
-  const navItems = user.role === "ADMINISTRATOR" ? [{ label: "User Management", href: "#/admin/users", current: view === "#/admin/users" }] : user.role === "IT_STAFF" ? [
-    { label: "Ticket Queue", href: "#/staff/tickets", current: showingQueue },
+  const [path, queryString = ""] = view.slice(1).split("?"); const hashPath = `#${path}`; const routeQuery = Object.fromEntries(new URLSearchParams(queryString));
+  const showingCreateTicket = hashPath === "#/tickets/new";
+  const showingQueue = hashPath === "#/staff/tickets";
+  const showingStaffDashboard = hashPath === "#/staff/dashboard";
+  const showingRequesterDashboard = hashPath === "#/dashboard";
+  const showingActionsDashboard = hashPath === "#/staff/dashboard/actions";
+  const showingUserManagement = hashPath === "#/admin/users";
+  const staffDetailMatch = hashPath.match(/^#\/staff\/tickets\/(\d+)$/);
+  const detailMatch = hashPath.match(/^#\/tickets\/(\d+)$/);
+  const navItems = user.role === "ADMINISTRATOR" ? [{ label: "Dashboard", href: "#/staff/dashboard", current: showingStaffDashboard }, { label: "Ticket Queue", href: "#/staff/tickets", current: showingQueue }, { label: "User Management", href: "#/admin/users", current: hashPath === "#/admin/users" }] : user.role === "IT_STAFF" ? [
+    { label: "Dashboard", href: "#/staff/dashboard", current: showingStaffDashboard }, { label: "Ticket Queue", href: "#/staff/tickets", current: showingQueue },
   ] : user.role === "REQUESTER" ? [
-    { label: "My Tickets", href: "#/tickets", current: !showingCreateTicket },
+    { label: "Dashboard", href: "#/dashboard", current: showingRequesterDashboard }, { label: "My Tickets", href: "#/tickets", current: hashPath === "#/tickets" },
     { label: "Create Ticket", href: "#/tickets/new", current: showingCreateTicket },
   ] : [];
   if (view === "#/access-denied") return <ErrorState title="Access denied" message="This area is not available for your account." />;
-  if (user.role === "ADMINISTRATOR" && view === "#/admin/users") return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><UserManagement /></AppShell>;
+  const dashboardAuthHandlers = { onAuthenticationLost: () => setUser(null), onPasswordChangeRequired: () => setUser((current) => current ? { ...current, mustChangePassword: true } : current) };
+  if (showingUserManagement) return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}>{user.role === "ADMINISTRATOR" ? <UserManagement /> : <ErrorState title="Access denied" message="Administrator access is required to manage users." />}</AppShell>;
   if (user.role === "ADMINISTRATOR" && detailMatch) return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}><AdminTicketInspection ticketId={Number(detailMatch[1])} /></AppShell>;
   return <AppShell user={user} navItems={navItems} onLogout={async () => { await logout(); setUser(null); }}>
-    {staffDetailMatch ? (user.role === "IT_STAFF" ? <StaffTicketDetail ticketId={Number(staffDetailMatch[1])} /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingQueue ? (user.role === "IT_STAFF" ? <StaffTicketQueue /> : <ErrorState title="Access denied" message="IT Staff access is required to view the Ticket Queue." />) : showingCreateTicket ? <CreateTicket /> : detailMatch ? <RequesterTicketDetail ticketId={Number(detailMatch[1])} /> : <MyTickets />}
+    {showingRequesterDashboard ? (user.role === "REQUESTER" ? <RequesterDashboard {...dashboardAuthHandlers} /> : <ErrorState title="Access denied" message="Requester access is required to view this dashboard." />) : showingStaffDashboard ? (user.role !== "REQUESTER" ? <StaffDashboard {...dashboardAuthHandlers} /> : <ErrorState title="Access denied" message="Operational access is required to view this dashboard." />) : showingActionsDashboard ? (user.role !== "REQUESTER" ? <DashboardActions query={routeQuery} {...dashboardAuthHandlers} /> : <ErrorState title="Access denied" message="Operational access is required to view Actions." />) : staffDetailMatch ? (user.role !== "REQUESTER" ? <StaffTicketDetail ticketId={Number(staffDetailMatch[1])} focusedActionId={Number(routeQuery.actionId) || undefined} /> : <ErrorState title="Access denied" message="Operational access is required to view the Ticket Queue." />) : showingQueue ? (user.role !== "REQUESTER" ? <StaffTicketQueue routeQuery={routeQuery} /> : <ErrorState title="Access denied" message="Operational access is required to view the Ticket Queue." />) : showingCreateTicket ? <CreateTicket /> : detailMatch ? (user.role === "ADMINISTRATOR" ? <AdminTicketInspection ticketId={Number(detailMatch[1])} /> : <RequesterTicketDetail ticketId={Number(detailMatch[1])} />) : <MyTickets routeQuery={routeQuery} />}
   </AppShell>;
 }

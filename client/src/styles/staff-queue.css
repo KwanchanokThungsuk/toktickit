@@ -2,6 +2,10 @@
 .ticket-queue__header { margin-bottom: 1.25rem; }
 .ticket-queue__header h1 { margin: 0 0 .25rem; font-size: 1.75rem; }
 .ticket-queue__header p { margin: 0; color: var(--zg-text-muted); }
+.ticket-queue__dashboard-filter { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: .65rem !important; }
+.ticket-queue__dashboard-filter a { display: inline-flex; align-items: center; justify-content: center; min-height: 2rem; padding: .3rem .7rem; border: 1px solid var(--zg-primary); border-radius: 999px; background: var(--zg-surface); color: var(--zg-primary); font-size: .8125rem; font-weight: 600; line-height: 1.2; text-decoration: none; white-space: nowrap; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+.ticket-queue__dashboard-filter a:hover { border-color: var(--zg-secondary); background: var(--zg-pale); color: var(--zg-secondary); }
+.ticket-queue__dashboard-filter a:focus-visible { outline: 3px solid var(--zg-focus-ring); outline-offset: 2px; }
 .ticket-queue__controls { display: grid; grid-template-columns: minmax(18rem, 2fr) repeat(4, minmax(9rem, 1fr)); gap: 1rem; padding: 1.25rem; margin-bottom: 1.25rem; background: var(--zg-surface); border: 1px solid var(--zg-border); border-radius: .5rem; }
 .ticket-queue__controls label { display: grid; gap: .35rem; color: var(--zg-text); font-size: .875rem; font-weight: 600; }
 .ticket-queue__controls input, .ticket-queue__controls select { width: 100%; min-height: 2.5rem; padding: .55rem .7rem; border: 1px solid var(--zg-border); border-radius: .375rem; background: var(--zg-surface); color: var(--zg-text); font: inherit; font-weight: 400; }

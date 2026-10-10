@@ -9,7 +9,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
+export default function StaffTicketDetail({ ticketId, focusedActionId }: { ticketId: number; focusedActionId?: number }) {
   const [ticket, setTicket] = useState<StaffTicketDetailData | null>(null);
   const [error, setError] = useState("");
   const [selectedOwner, setSelectedOwner] = useState("");
@@ -77,7 +77,7 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
     <section className="ticket-detail__panel" aria-labelledby="attachments-heading"><h2 id="attachments-heading">Attachments ({ticket.attachments.length})</h2>{ticket.attachments.length ? <ul className="ticket-detail__attachments">{ticket.attachments.map((attachment) => <li key={attachment.id} className={attachment.isRemoved ? "is-removed" : ""}><strong>{attachment.originalFilename}</strong><span>{attachment.contentType} · {attachment.fileSize} bytes{attachment.isRemoved ? " · removed" : ""}</span></li>)}</ul> : <p className="ticket-detail__muted">No attachments.</p>}</section>
     <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
     <InternalNotes ticketId={ticket.id} initial={ticket.internalNotes ?? []} />
-    <ActionsTakenPanel ticketId={ticket.id} role="IT_STAFF" ticketStatus={ticket.currentStatus} assignees={ticket.eligibleOwners as never} onTicketRefreshRequested={refreshTicket} />
+    <ActionsTakenPanel ticketId={ticket.id} role="IT_STAFF" ticketStatus={ticket.currentStatus} assignees={ticket.eligibleOwners as never} focusedActionId={focusedActionId} onTicketRefreshRequested={refreshTicket} />
     {ticket.requesterResolutionIndicatedAt ? <p className="alert alert-info">Requester indicated that the problem appears resolved on {new Date(ticket.requesterResolutionIndicatedAt).toLocaleString()}.</p> : null}
   </div>;
 }
