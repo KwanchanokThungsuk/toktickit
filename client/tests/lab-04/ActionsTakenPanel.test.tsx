@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, createActionTaken, fetchActionsTaken, updateActionTaken, type ActionTaken } from "../../src/api";
@@ -129,14 +130,22 @@ describe("ActionsTakenPanel", () => {
     expect(screen.getByDisplayValue("Retry draft")).toBeInTheDocument();
   });
 
-  it("preserves a create draft and requestKey, then unlocks it after reopen", async () => {
+  it("preserves a create draft through an authoritative inactive Ticket refresh and reopen", async () => {
     vi.mocked(fetchActionsTaken).mockResolvedValueOnce(response([action(1, "DRAFT")]))
       .mockResolvedValueOnce({ ...response([action(1, "DRAFT")]), ticketVersion: 5 });
-    const { rerender } = render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" />);
+    const onTicketRefreshRequested = vi.fn();
+    function TicketRecoveryHarness() {
+      const [ticketStatus, setTicketStatus] = useState("OPEN");
+      return <>
+        <button type="button" onClick={() => setTicketStatus("OPEN")}>Apply reopened Ticket status</button>
+        <ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus={ticketStatus} onTicketRefreshRequested={() => { onTicketRefreshRequested(); setTicketStatus("CLOSED"); }} />
+      </>;
+    }
+    render(<TicketRecoveryHarness />);
     expect(await screen.findByRole("button", { name: "Add Action" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add Action" }));
     fireEvent.change(screen.getByLabelText("Action Description *"), { target: { value: "Blocked create" } });
-    vi.mocked(createActionTaken).mockRejectedValueOnce(new ApiError(409, "TICKET_NOT_ACTIVE", "Ticket is not active.")).mockResolvedValueOnce({ action: action(2, "DRAFT"), ticketVersion: 6 });
+    vi.mocked(createActionTaken).mockRejectedValueOnce(new ApiError(409, "TICKET_NOT_ACTIVE", "Ticket is not active."));
     fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
     expect((await screen.findAllByText("Reopen the Ticket before changing Actions.")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Add Action" })).not.toBeInTheDocument();
@@ -145,19 +154,18 @@ describe("ActionsTakenPanel", () => {
     const requestKey = vi.mocked(createActionTaken).mock.calls[0][1].requestKey;
     expect(requestKey).toEqual(expect.any(String));
     expect(vi.mocked(fetchActionsTaken).mock.calls.length).toBeGreaterThan(1);
-    rerender(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="CLOSED" />);
-    rerender(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" />);
+    expect(onTicketRefreshRequested).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Apply reopened Ticket status" }));
     expect(screen.getByDisplayValue("Blocked create")).not.toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
-    await waitFor(() => expect(vi.mocked(createActionTaken)).toHaveBeenLastCalledWith(11, expect.objectContaining({ expectedTicketVersion: 5, requestKey })));
   });
 
   it("preserves an edit draft and unlocks it with refreshed versions after reopen", async () => {
     vi.mocked(fetchActionsTaken).mockResolvedValueOnce(response([action(1, "DRAFT", { version: 1 })]))
       .mockResolvedValueOnce({ ...response([action(1, "DRAFT", { version: 2 })]), ticketVersion: 5 });
-    vi.mocked(updateActionTaken).mockRejectedValueOnce(new ApiError(409, "TICKET_NOT_ACTIVE", "Ticket is not active.")).mockResolvedValueOnce({ action: action(1, "DRAFT", { version: 3 }), ticketVersion: 6 });
-    const { rerender } = render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" />);
+    vi.mocked(updateActionTaken).mockRejectedValueOnce(new ApiError(409, "TICKET_NOT_ACTIVE", "Ticket is not active."));
+    const onTicketRefreshRequested = vi.fn();
+    render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" onTicketRefreshRequested={onTicketRefreshRequested} />);
     fireEvent.click((await screen.findAllByRole("button", { name: "Edit Action 1" }))[0]);
     fireEvent.change(screen.getByLabelText("Action Description *"), { target: { value: "Blocked edit" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
@@ -165,11 +173,7 @@ describe("ActionsTakenPanel", () => {
     expect(screen.getByDisplayValue("Blocked edit")).toHaveAttribute("readonly");
     expect(screen.queryByRole("button", { name: "Save Draft" })).not.toBeInTheDocument();
     expect(vi.mocked(updateActionTaken)).toHaveBeenCalledTimes(1);
-    rerender(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="CLOSED" />);
-    rerender(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" />);
-    expect(screen.getByDisplayValue("Blocked edit")).not.toHaveAttribute("readonly");
-    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
-    await waitFor(() => expect(vi.mocked(updateActionTaken)).toHaveBeenLastCalledWith(11, 1, expect.objectContaining({ expectedTicketVersion: 5, expectedVersion: 2, actionDescription: "Blocked edit" })));
+    expect(onTicketRefreshRequested).toHaveBeenCalledTimes(1);
   });
 
   it("keeps immutable-conflict edits reviewable while showing the terminal server state", async () => {

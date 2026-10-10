@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { InternalNotes, PublicComments } from "./CommunicationPanel";
 import ErrorState from "./ErrorState";
 import Loading from "./Loading";
@@ -17,14 +17,13 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
   const [selectedPriority, setSelectedPriority] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<StaffTicketStatus | "">("");
 
-  useEffect(() => {
-    let active = true;
-    setTicket(null); setError("");
-    fetchStaffTicketDetail(ticketId).then((value) => {
-      if (active) { setTicket(value); setSelectedOwner(value.assignedTo ? String(value.assignedTo.id) : ""); setSelectedPriority(value.itPriority); setSelectedStatus(value.currentStatus); }
-    }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Unable to load ticket details"); });
-    return () => { active = false; };
+  const refreshTicket = useCallback(() => {
+    fetchStaffTicketDetail(ticketId).then((value) => { setTicket(value); setSelectedOwner(value.assignedTo ? String(value.assignedTo.id) : ""); setSelectedPriority(value.itPriority); setSelectedStatus(value.currentStatus); }).catch((reason) => { setError(reason instanceof Error ? reason.message : "Unable to load ticket details"); });
   }, [ticketId]);
+
+  useEffect(() => {
+    setTicket(null); setError(""); refreshTicket();
+  }, [ticketId, refreshTicket]);
 
   if (error) return <ErrorState title="Unable to load ticket" message={error} action={<a className="btn zg-button zg-button--secondary" href="#/staff/tickets">Back to Ticket Queue</a>} />;
   if (!ticket) return <Loading message="Loading ticket details..." />;
@@ -70,7 +69,7 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
     <section className="ticket-detail__panel" aria-labelledby="attachments-heading"><h2 id="attachments-heading">Attachments ({ticket.attachments.length})</h2>{ticket.attachments.length ? <ul className="ticket-detail__attachments">{ticket.attachments.map((attachment) => <li key={attachment.id} className={attachment.isRemoved ? "is-removed" : ""}><strong>{attachment.originalFilename}</strong><span>{attachment.contentType} · {attachment.fileSize} bytes{attachment.isRemoved ? " · removed" : ""}</span></li>)}</ul> : <p className="ticket-detail__muted">No attachments.</p>}</section>
     <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
     <InternalNotes ticketId={ticket.id} initial={ticket.internalNotes ?? []} />
-    <ActionsTakenPanel ticketId={ticket.id} role="IT_STAFF" ticketStatus={ticket.currentStatus} assignees={ticket.eligibleOwners as never} />
+    <ActionsTakenPanel ticketId={ticket.id} role="IT_STAFF" ticketStatus={ticket.currentStatus} assignees={ticket.eligibleOwners as never} onTicketRefreshRequested={refreshTicket} />
     {ticket.requesterResolutionIndicatedAt ? <p className="alert alert-info">Requester indicated that the problem appears resolved on {new Date(ticket.requesterResolutionIndicatedAt).toLocaleString()}.</p> : null}
   </div>;
 }
