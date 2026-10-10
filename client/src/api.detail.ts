@@ -23,6 +23,9 @@ export interface TicketDetail {
   description: string;
   requestedPriority: "LOW" | "MEDIUM" | "HIGH";
   currentStatus: string;
+  version: number;
+  resolvedAt: string | null;
+  resolutionReady: boolean;
   requesterResolutionIndicatedAt?: string | null;
   createdAt: string;
   attachments: TicketDetailAttachment[];

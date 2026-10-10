@@ -7,6 +7,7 @@
     type TicketDetail,
   } from "../api.detail";
   import {
+    ApiError,
     downloadAttachment,
     indicateProblemResolved,
     removeAttachment,
@@ -310,10 +311,14 @@
       setResolutionSubmitting(true);
       setResolutionError("");
       try {
-        const updated = await indicateProblemResolved(ticketId);
-        setTicket((current) => current ? { ...current, requesterResolutionIndicatedAt: updated.requesterResolutionIndicatedAt } : current);
+        if (!ticket) return;
+        const updated = await indicateProblemResolved(ticketId, ticket.version);
+        setTicket((current) => current ? { ...current, ...updated } : current);
       } catch (reason) {
-        setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
+        if (reason instanceof ApiError && reason.status === 409) {
+          setResolutionError(reason.code === "STALE_UPDATE" ? "This Ticket changed. Refresh and review before trying again." : reason.message);
+          refreshTicket();
+        } else setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
       } finally { setResolutionSubmitting(false); }
     }
 

@@ -18,6 +18,9 @@ const ticket: TicketDetail = {
   description: "The battery drains while idle.",
   requestedPriority: "HIGH",
   currentStatus: "NEW",
+  version: 1,
+  resolvedAt: null,
+  resolutionReady: false,
   createdAt: "2026-08-31T09:14:00.000Z",
   attachments: [{ id: 7, originalFilename: "wrong-report.pdf", contentType: "application/pdf", fileSize: 1024, uploadedAt: "2026-08-31T09:15:00.000Z", isRemoved: true, removedAt: "2026-08-31T09:16:00.000Z", removedReason: "Uploaded the wrong report" }],
 };

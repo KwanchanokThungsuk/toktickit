@@ -170,6 +170,8 @@ export async function fetchTickets(options: FetchTicketsOptions): Promise<Ticket
 }
 
 export interface StaffTicketDetail extends StaffTicket {
+  version: number;
+  resolvedAt: string | null;
   description: string;
   requester: { id: number; name: string; email: string };
   category: { id: number; name: string };
@@ -177,6 +179,7 @@ export interface StaffTicketDetail extends StaffTicket {
   attachments: AttachmentMetadata[];
   eligibleOwners: Array<{ id: number; name: string; email: string; role: string }>;
   requesterResolutionIndicatedAt: string | null;
+  resolutionReady: boolean;
   requesterResolutionIndicatedByUserId: number | null;
   publicComments: TicketComment[];
   internalNotes: InternalNote[];
@@ -188,10 +191,10 @@ export async function fetchAdminTicketInspection(ticketId: number): Promise<Admi
   if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Ticket inspection");
   return body;
 }
-export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority, expectedVersion }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update IT Priority");
   return body;
 }
 
@@ -235,39 +238,42 @@ export async function addInternalNote(ticketId: number, body: string): Promise<I
   return result;
 }
 
-export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null) {
+export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null, expectedVersion: number) {
   const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/owner`, {
     method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) },
-    body: JSON.stringify({ ownerId }),
+    body: JSON.stringify({ ownerId, expectedVersion }),
   });
-  if (!response.ok) throw new Error("Unable to update ticket owner");
-  return response.json();
-}
-
-export async function claimStaffTicket(ticketId: number) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: await csrfHeader() });
-  if (!response.ok) throw new Error("Unable to claim ticket");
-  return response.json();
-}
-
-export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
-  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority">;
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update ticket owner");
+  return { owner: body, version: Number(response.headers.get("X-Ticket-Version")) };
 }
 
-export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status }) });
+export async function claimStaffTicket(ticketId: number, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ expectedVersion }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update Ticket status");
-  return body as Pick<StaffTicketDetail, "id" | "currentStatus">;
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to claim ticket");
+  return { owner: body, version: Number(response.headers.get("X-Ticket-Version")) };
 }
 
-export async function indicateProblemResolved(ticketId: number) {
-  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: await csrfHeader() });
-  if (!response.ok) throw new Error("Unable to indicate problem resolution");
-  return response.json();
+export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority, expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update IT Priority");
+  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority" | "version" | "updatedAt">;
+}
+
+export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status, expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update Ticket status");
+  return body as Pick<StaffTicketDetail, "id" | "currentStatus" | "version" | "updatedAt" | "resolvedAt">;
+}
+
+export async function indicateProblemResolved(ticketId: number, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to indicate problem resolution");
+  return body as { id: number; currentStatus: StaffTicketStatus; requesterResolutionIndicatedAt: string; requesterResolutionIndicatedByUserId: number; version: number; updatedAt: string };
 }
 
 export async function createTicket(payload: CreateTicketPayload) {
