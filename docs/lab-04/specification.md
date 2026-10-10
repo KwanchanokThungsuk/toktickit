@@ -1,6 +1,6 @@
 # Lab 4 – Sprint 4 Engineering Specification
 
-**Status:** The Issue 28 Actions Taken backend foundation and Issue 29 Actions Taken UI are implemented and verified. This contract continues to govern those delivered increments and the planned Issue 30–33 workflow, dashboard, responsive/accessibility, and release work. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
+**Status:** The Issue 28 Actions Taken backend foundation, Issue 29 Actions Taken UI, Issue 30 workflow, and Issue 31 dashboard increments are implemented and verified as recorded in [tests.md](tests.md). This contract continues to govern those delivered increments and the planned responsive/accessibility and release work in Issues 32–33. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
 
 **Authority:** [Lab 4 handout](Lab_4_sheet.pdf), especially sections 4–8 and submission Part 6. The [Lab 3 specification](../lab-03/specification.md), [UI](../lab-03/ui-spec.md), [API](../lab-03/api-spec.md), [tests](../lab-03/tests.md), peer review record, and actual source establish the inherited baseline. [UI details](ui-spec.md), [REST contract](api-spec.md), and [test traceability](tests.md) complete this contract.
 

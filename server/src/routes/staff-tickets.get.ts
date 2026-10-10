@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
-import { requireStaff } from "../auth.js";
+import { requireStaffOrAdministrator } from "../auth.js";
 
 const router = Router();
 const statuses = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED", "RESOLVED", "CLOSED", "CANCELLED"];
@@ -9,8 +9,8 @@ const priorities = ["LOW", "MEDIUM", "HIGH"];
 const sortFields = ["ticketNumber", "createdAt", "updatedAt"];
 
 router.get("/api/staff/tickets", async (req: Request, res: Response): Promise<any> => {
-  if (!requireStaff(req, res)) return;
-  const allowed = ["page", "pageSize", "search", "status", "itPriority", "sortBy", "sortOrder"];
+  const allowed = ["page", "pageSize", "search", "status", "itPriority", "sortBy", "sortOrder", "statusGroup", "updatedFrom", "updatedTo", "owner"];
+  if (!requireStaffOrAdministrator(req, res)) return;
   if (Object.keys(req.query).some((key) => !allowed.includes(key))) return res.status(422).json({ error: { code: "INVALID_QUERY", message: "Invalid query parameters." } });
   const value = (key: string) => req.query[key];
   const page = value("page") === undefined ? 1 : Number(value("page"));
@@ -20,13 +20,20 @@ router.get("/api/staff/tickets", async (req: Request, res: Response): Promise<an
   const itPriority = value("itPriority");
   const sortBy = value("sortBy") === undefined ? "updatedAt" : String(value("sortBy"));
   const sortOrder = value("sortOrder") === undefined ? "desc" : String(value("sortOrder"));
-  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100 || (search !== undefined && typeof search !== "string") || (status !== undefined && !statuses.includes(String(status))) || (itPriority !== undefined && !priorities.includes(String(itPriority))) || !sortFields.includes(sortBy) || !["asc", "desc"].includes(sortOrder)) return res.status(422).json({ error: { code: "INVALID_QUERY", message: "Invalid query parameters." } });
+  const statusGroup = value("statusGroup"); const owner = value("owner"); const updatedFrom = value("updatedFrom"); const updatedTo = value("updatedTo");
+  const parseInstant = (v: unknown) => typeof v === "string" && /T\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(v) && !Number.isNaN(Date.parse(v)) ? new Date(v) : null;
+  const from = updatedFrom === undefined ? null : parseInstant(updatedFrom); const to = updatedTo === undefined ? null : parseInstant(updatedTo);
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100 || (search !== undefined && typeof search !== "string") || (status !== undefined && !statuses.includes(String(status))) || (itPriority !== undefined && !priorities.includes(String(itPriority))) || !sortFields.includes(sortBy) || !["asc", "desc"].includes(sortOrder) || (statusGroup !== undefined && statusGroup !== "active") || (statusGroup !== undefined && status !== undefined) || (owner !== undefined && owner !== "me" && owner !== "unassigned") || (updatedFrom === undefined) !== (updatedTo === undefined) || (from === null && updatedFrom !== undefined) || (to === null && updatedTo !== undefined) || (from && to && from > to)) return res.status(422).json({ error: { code: "INVALID_QUERY", message: "Invalid query parameters." } });
   try {
     const prisma = getPrisma();
     const where: any = {};
     if (search) where.OR = [{ ticketNumber: { contains: search, mode: "insensitive" } }, { summary: { contains: search, mode: "insensitive" } }];
     if (status !== undefined) where.currentStatus = String(status);
     if (itPriority !== undefined) where.itPriority = String(itPriority);
+    if (statusGroup !== undefined) where.currentStatus = { in: ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"] };
+    if (from && to) where.updatedAt = { gte: from, lte: to };
+    if (owner === "me") where.assignedToUserId = req.auth!.userId;
+    if (owner === "unassigned") where.assignedToUserId = null;
     const orderBy: any[] = [{ [sortBy]: sortOrder }, { id: "asc" }];
     const [rows, totalItems] = await Promise.all([
       prisma.ticket.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, createdAt: true, updatedAt: true, summary: true, requestedPriority: true, itPriority: true, currentStatus: true, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, assignedTo: { select: { id: true, name: true, email: true } } } }),

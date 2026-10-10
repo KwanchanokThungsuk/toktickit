@@ -120,6 +120,11 @@ beforeEach(() => {
 });
 
 describe("MyTickets", () => {
+  it("applies the exact dashboard drill-down query to the existing Ticket list", async () => {
+    render(<MyTickets routeQuery={{ statusGroup: "active", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc" }} />);
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ statusGroup: "active", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc", page: 1 })));
+    expect(screen.getByText("Dashboard filter is active.")).toBeInTheDocument();
+  });
   describe("UI-13 / AC-22 - ticket list and pagination", () => {
     it("renders the My Tickets heading and subtitle", async () => {
       renderMyTickets();
@@ -550,7 +555,7 @@ describe("MyTickets", () => {
   });
 
   describe("UI-23 / AC-35 - Current Status filter", () => {
-    it("provides only All Statuses and New options", () => {
+    it("provides all documented Ticket status options", () => {
       renderMyTickets();
 
       const statusSelect =
@@ -570,11 +575,8 @@ describe("MyTickets", () => {
         }),
       ).toBeInTheDocument();
 
-      expect(
-        within(statusSelect).queryByRole("option", {
-          name: /closed/i,
-        }),
-      ).not.toBeInTheDocument();
+      expect(within(statusSelect).getByRole("option", { name: "Closed" })).toBeInTheDocument();
+      expect(within(statusSelect).getAllByRole("option")).toHaveLength(9);
     });
 
     it("requests NEW tickets and resets page to 1", async () => {

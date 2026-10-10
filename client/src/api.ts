@@ -111,13 +111,13 @@ export interface CreateTicketPayload {
 }
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
-export type TicketStatus = "NEW";
+export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
 export type TicketSortBy = "ticketNumber" | "createdAt" | "updatedAt";
 export type TicketSortOrder = "asc" | "desc";
 export type StaffTicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
 export interface StaffTicket { id: number; ticketNumber: string; createdAt: string; updatedAt: string; summary: string; requestedPriority: TicketPriority; itPriority: TicketPriority; currentStatus: StaffTicketStatus; category: Category; relatedSystem: RelatedSystem; assignedTo: { id: number; name: string; email: string } | null; }
 export interface StaffTicketResponse { items: StaffTicket[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
-export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; }
+export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; owner?: "me" | "unassigned"; statusGroup?: "active"; updatedFrom?: string; updatedTo?: string; }
 export async function fetchStaffTickets(options: StaffTicketOptions = {}): Promise<StaffTicketResponse> { const params = new URLSearchParams(); Object.entries(options).forEach(([key, value]) => { if (value !== undefined && value !== "") params.set(key, String(value)); }); const res = await fetch(`${API_URL}/api/staff/tickets?${params}`, { credentials: "include" }); const body = await res.json(); if (!res.ok) throw new Error(body.error?.message ?? "Unable to load ticket queue"); return body; }
 
 export interface TicketListItem {
@@ -150,6 +150,11 @@ export interface FetchTicketsOptions {
   relatedSystemId?: string;
   requestedPriority?: TicketPriority;
   currentStatus?: TicketStatus;
+  statusGroup?: "active";
+  updatedFrom?: string;
+  updatedTo?: string;
+  recentlyResolvedFrom?: string;
+  recentlyResolvedTo?: string;
   sortBy: TicketSortBy;
   sortOrder: TicketSortOrder;
   page: number;
@@ -168,6 +173,23 @@ export async function fetchTickets(options: FetchTicketsOptions): Promise<Ticket
   if (!res.ok) throw new Error("Unable to load your tickets");
   return res.json();
 }
+
+export interface DashboardDrillDown { destination: string; query: Record<string, string>; }
+export interface DashboardMetric { count: number; drillDown: DashboardDrillDown; }
+export interface DashboardTicketSummary { id: number; ticketNumber: string; summary: string; currentStatus: TicketStatus; itPriority?: TicketPriority; assignedTo?: ActionUserSummary | null; updatedAt: string; resolutionTime?: string; resolutionTimeSource?: "FORMAL_RESOLUTION" | "LEGACY_UPDATED_AT"; }
+export interface DashboardActionSummary { id: number; ticketId: number; ticketNumber: string; actionDescription: string; status: ActionStatus; completedAt: string | null; performedBy: ActionUserSummary | null; followUpRequired: boolean; }
+export interface DashboardEnvelope { asOf: string; window: { start: string; end: string }; displayTimeZone: string; }
+export interface RequesterDashboardResponse extends DashboardEnvelope { metrics: { openTickets: DashboardMetric; waitingForRequester: DashboardMetric; recentlyUpdated: DashboardMetric; recentlyResolved: DashboardMetric; }; attentionRequired: DashboardTicketSummary[]; recentTickets: DashboardTicketSummary[]; resolvedTickets: DashboardTicketSummary[]; }
+export interface StaffDashboardResponse extends DashboardEnvelope { metrics: { unassignedTickets: DashboardMetric; myTickets: DashboardMetric; recentlyUpdated: DashboardMetric; myActions: DashboardMetric; byStatus: Record<StaffTicketStatus, DashboardMetric>; byItPriority: Record<TicketPriority, DashboardMetric>; }; recentTickets: DashboardTicketSummary[]; urgentTickets: DashboardTicketSummary[]; myRecentActions: DashboardActionSummary[]; urgentDrillDown: DashboardDrillDown; }
+export interface DashboardActionsResponse { items: DashboardActionSummary[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
+async function dashboardGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, { credentials: "include" }); const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to load dashboard");
+  return body as T;
+}
+export function fetchRequesterDashboard() { return dashboardGet<RequesterDashboardResponse>("/api/dashboard/requester"); }
+export function fetchStaffDashboard() { return dashboardGet<StaffDashboardResponse>("/api/staff/dashboard"); }
+export function fetchDashboardActions(query: Record<string, string>) { return dashboardGet<DashboardActionsResponse>(`/api/staff/dashboard/actions?${new URLSearchParams(query).toString()}`); }
 
 export interface StaffTicketDetail extends StaffTicket {
   version: number;
