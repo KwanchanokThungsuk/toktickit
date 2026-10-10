@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.{ts,js}"],
+    env: { NODE_ENV: "test" },
   },
 });
