@@ -5,6 +5,7 @@ import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 import {
   downloadAttachment,
   fetchActionsTaken,
+  indicateProblemResolved,
   removeAttachment,
   uploadAttachment,
 } from "../../src/api";
@@ -16,6 +17,7 @@ vi.mock("../../src/api.detail", () => ({
 vi.mock("../../src/api", () => ({
   downloadAttachment: vi.fn(),
   fetchActionsTaken: vi.fn(),
+  indicateProblemResolved: vi.fn(),
   removeAttachment: vi.fn(),
   uploadAttachment: vi.fn(),
 }));
@@ -36,6 +38,9 @@ const ticket: TicketDetail = {
   description: "The battery drains while idle.",
   requestedPriority: "HIGH",
   currentStatus: "NEW",
+  version: 1,
+  resolvedAt: null,
+  resolutionReady: false,
   createdAt: "2026-08-31T09:14:00.000Z",
   attachments: [
     {
@@ -57,6 +62,7 @@ beforeEach(() => {
 
   vi.mocked(fetchTicket).mockResolvedValue(ticket);
   vi.mocked(fetchActionsTaken).mockResolvedValue({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0, ticketVersion: 1 });
+  vi.mocked(indicateProblemResolved).mockResolvedValue({ id: ticket.id, currentStatus: "IN_PROGRESS", requesterResolutionIndicatedAt: "2026-09-01T09:15:00.000Z", requesterResolutionIndicatedByUserId: requester.id, version: 2, updatedAt: "2026-09-01T09:15:00.000Z" });
 
   vi.mocked(downloadAttachment).mockResolvedValue({
     blob: new Blob(["preview"], {
@@ -82,6 +88,14 @@ afterEach(() => {
 });
 
 describe("RequesterTicketDetail", () => {
+  it("submits a versioned advisory resolution indication without changing status", async () => {
+    vi.mocked(fetchTicket).mockResolvedValue({ ...ticket, currentStatus: "IN_PROGRESS" });
+    render(<RequesterTicketDetail ticketId={42} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Problem Appears Resolved" }));
+    await waitFor(() => expect(indicateProblemResolved).toHaveBeenCalledWith(42, 1));
+    expect(await screen.findByText("You indicated that the problem appears resolved.")).toBeInTheDocument();
+  });
+
   it("shows an owned ticket read-only with attachment metadata", async () => {
     render(<RequesterTicketDetail ticketId={42} />);
 

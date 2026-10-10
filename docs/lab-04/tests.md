@@ -1,6 +1,6 @@
 # Lab 4 Test Evidence and Remaining Plan
 
-**Status:** Issue 28 and Issue 29 evidence is implemented and automated where stated below. Issue 30–33 workflow, dashboard, release, browser-responsive, and end-to-end work remains planned unless explicitly marked **MANUAL ONLY**. This document records current repository evidence; it does not claim complete final-release coverage for every Lab 4 criterion.
+**Status:** Issue 28, Issue 29, and Issue 30 evidence is implemented and automated where stated below. Issue 31–33 dashboard, release, browser-responsive, and end-to-end work remains planned unless explicitly marked **MANUAL ONLY**. This document records current repository evidence; it does not claim complete final-release coverage for every Lab 4 criterion.
 
 [specification.md](specification.md), [api-spec.md](api-spec.md), and [ui-spec.md](ui-spec.md) remain the approved contract.
 
@@ -66,11 +66,20 @@ The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail,
 | Mobile touch targets and keyboard-only traversal | Semantic controls and focus styles exist; no browser-level test | MANUAL ONLY |
 | View/Edit control grouping and Staff Queue layout | Scoped UI/CSS implementation exists; manual visual review required | MANUAL ONLY |
 
-## 6. Planned Future Coverage — Issues 30–33
+## 6. Workflow Coverage — Issue 30
+
+| ID | Type | Requirement / AC | What It Tests | Expected Result | Automated Test File | Final Status |
+|---|---|---|---|---|---|---|
+| WORKFLOW-01 | API/integration | AC-06 | All 18 transition-matrix edges for Staff/Admin, every same-state/forbidden edge, unknown enum, and Requester denial | Only documented edges succeed; invalid edges return `409`; unknown status returns `422`; Requester returns `403` | `server/tests/lab-04/ticket-workflow.api.test.ts` | IMPLEMENTED / AUTOMATED |
+| WORKFLOW-02 | API/integration | AC-07 | Resolution gate, `resolvedAt`, close/reopen/re-resolve, and cancellation of Draft Actions | Blocked requests leave state unchanged; valid evidence resolves; terminal Actions remain unchanged | `server/tests/lab-04/ticket-workflow.api.test.ts` | IMPLEMENTED / AUTOMATED |
+| WORKFLOW-03 | API/integration/client | AC-08 | Owned requester advisory, duplicate/disallowed/foreign rejection, Staff/Admin display | Server-derived advice persists without status change and is displayed to operational users | `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-02/RequesterTicketDetail.test.tsx`; `client/tests/lab-03/AdminTicketInspection.test.tsx` | IMPLEMENTED / AUTOMATED |
+| WORKFLOW-04 | API/client | AC-13 | Administrator operational owner/claim/priority/status behavior and Requester denial | Administrator receives approved Staff behavior; Requester writes remain forbidden | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `client/tests/lab-03/AdminTicketInspection.test.tsx` | IMPLEMENTED / AUTOMATED |
+| CONFLICT-03 | API/client | AC-15 | Versioned owner/claim/priority/status and advisory writes, stale races, conflict refresh | One concurrent mutation succeeds, stale write returns `409 STALE_UPDATE`, and UI refreshes authoritative state without false success | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-03/StaffTicketDetail.test.tsx` | IMPLEMENTED / AUTOMATED |
+
+## 7. Planned Future Coverage — Issues 31–33
 
 | Area | Planned evidence | Status |
 |---|---|---|
-| Ticket transition matrix, resolution gate, cancellation/reopen | Workflow unit/API/integration tests | PLANNED / FUTURE ISSUE 30 |
 | Requester and Staff/Admin dashboards, drill-downs, predicates, performance | Dashboard API/component/integration tests | PLANNED / FUTURE ISSUE 31 |
 | Playwright Action/workflow/dashboard flows | `e2e/lab-04/*.spec.ts` | PLANNED / FUTURE ISSUES 30–33 |
 | Browser responsive/accessibility suites | `responsive.spec.ts`, `accessibility.spec.ts` | PLANNED / FUTURE ISSUE 33 |
@@ -78,7 +87,7 @@ The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail,
 
 Existing Lab 1–3 regression suites continue to run in the verified server/client results above. Future work must retain authorization, ownership, file, comment/note, account-safety, and Ticket regressions.
 
-## 7. Acceptance-Criteria Traceability
+## 8. Acceptance-Criteria Traceability
 
 | AC | Current evidence | Status |
 |---|---|---|
@@ -87,11 +96,13 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | AC-03 | ACTION-03, ACTION-04, UI-ACTION-03 | IMPLEMENTED / AUTOMATED |
 | AC-04 | ACTION-05, ACTION-06, UI-ACTION-01 | IMPLEMENTED / AUTOMATED |
 | AC-05 | ACTION-04, ACTION-07, UI-STATE-01 | IMPLEMENTED / AUTOMATED |
-| AC-06–AC-08 | Ticket workflow/resolution | PLANNED / FUTURE ISSUE 30 |
+| AC-06 | WORKFLOW-01 | IMPLEMENTED / AUTOMATED |
+| AC-07 | WORKFLOW-02 | IMPLEMENTED / AUTOMATED |
+| AC-08 | WORKFLOW-03 | IMPLEMENTED / AUTOMATED |
 | AC-09–AC-12 | Dashboards | PLANNED / FUTURE ISSUE 31 |
-| AC-13 | ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED for current role/auth cases; direct forced-password Action-route case is future work |
+| AC-13 | WORKFLOW-04, ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED for current role/auth cases; direct forced-password Action-route case is future work |
 | AC-14 | Inherited auth/session regressions | IMPLEMENTED / AUTOMATED regression coverage |
-| AC-15 | ACTION-07, CONFLICT-01, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED for idempotency/stale handling; browser-level unknown-network recovery is planned |
+| AC-15 | ACTION-07, CONFLICT-01, CONFLICT-03, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED for idempotency/stale handling; browser-level unknown-network recovery is planned |
 | AC-16 | MIG-01 | IMPLEMENTED / AUTOMATED for current additive migration evidence |
 | AC-17 | Inherited server/client regressions | IMPLEMENTED / AUTOMATED regression coverage |
 | AC-18 | Responsive/styles manual review | MANUAL ONLY |
@@ -100,6 +111,6 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | AC-21 | SEED-01 | IMPLEMENTED / AUTOMATED |
 | AC-22–AC-23 | Performance and release work | PLANNED / FUTURE ISSUE 33 |
 
-## 8. Maintenance Rules
+## 9. Maintenance Rules
 
 Record future results with command, environment, and actual counts. Never mark a test as passed merely because a plan row exists. Database-backed tests must use a test-only database, own uniquely named fixtures, and clean in foreign-key-safe order. Do not use a suite-local disconnect on the shared application Prisma singleton.

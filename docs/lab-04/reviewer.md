@@ -8,7 +8,8 @@
 |----|--------|------------------|
 | [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71) | feature/27-lab3-spec-contract | Comment and Approved |
 | [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72) | feature/28-actions-taken-foundation | Comment and Approved  |
-| [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |   |
+| [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |  Comment and Approved |
+| [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow |  |
 
 **feature/27-lab3-spec-contract**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
@@ -38,11 +39,39 @@ PR: [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72)
     - fixed reveiwer.md
     I also re-ran the full local verification successfully: 17/17 test files passed and 100/100 tests passed. Build and Prisma validation also pass.
 
+**feature/29-actions-taken-ui**
+PR: [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73)
+- Reviewer comment I received: The Actions Taken UI is well covered overall, but I found two consistency/recovery issues before approval:
+
+    1. AdminTicketInspection still describes the page as “Read-only inspection”, while Lab 4 now permits Administrators to create/update Actions Taken and this PR exposes those controls. Please update the page messaging so it matches the actual Lab 4 permissions.
+    2. TICKET_NOT_ACTIVE recovery is not fully connected to the real Ticket Detail state. The Actions panel preserves the local draft and refreshes the Actions list, but it does not refresh the parent Ticket status. Therefore, if another user closes/resolves/cancels the Ticket, the page can still show the stale active status while telling the user to reopen it. The component test currently simulates recovery by manually rerendering with CLOSED then OPEN, which does not represent the actual application wiring. Please refresh/synchronize the authoritative Ticket status after this conflict while preserving the Action draft.
+- How I responded: Addressed both review comments.
+
+    1. Admin messaging
+        - Updated AdminTicketInspection so it no longer describes the whole page as read-only.
+        - The page now clarifies that Ticket details are read-only, while Administrators can still update IT Priority and manage Actions Taken.
+    2. TICKET_NOT_ACTIVE recovery
+        - ActionsTakenPanel now requests an authoritative Ticket refresh from the parent when an Action mutation returns TICKET_NOT_ACTIVE.
+        - The panel still preserves the current Action draft and refreshes the Actions list.
+        - Staff, Admin, and Requester Ticket Detail parents now refetch the Ticket detail and pass the refreshed currentStatus back into the Actions panel.
+        - While the Ticket is inactive, Actions Taken stays read-only.
+        - When the Ticket is reopened and the authoritative status becomes active again, write controls are restored without losing the local draft.
+    Tests were also updated to verify the real callback -> Ticket refetch -> refreshed status flow instead of relying only on manual prop rerendering.
+    - Verification:
+        - Full client suite: 15 files / 107 tests passed
+        - Build passed
+        - git diff --check passed
+
+**feature/30-complete-ticket-workflow**
+PR: [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74)
+- Reviewer comment I received:
+- How I responded:
+
 ## Pull Requests I reviewed for my partner
 **feature/13-specification-docs-lab3**
 PR: [#63](https://github.com/Ttime52/toktickit/pull/63)
 - My comment: Please align the stale-write HTTP status mapping across specification.md, api-spec.md, ui-spec.md, and tests.md, and standardize Action terminology/field naming. Also make the client-editable Action Date/Time behavior explicit as a project design decision.
-- Partner's response: 
+- Partner's response:
     - Align stale-write HTTP status code mappings across all files:
         - Malformed precondition -> 400 VALIDATION_ERROR
         - Missing If-Match/expectedTicketVersion -> 428 PRECONDITION_REQUIRED
@@ -57,3 +86,31 @@ PR: [#63](https://github.com/Ttime52/toktickit/pull/63)
 PR: [#64](https://github.com/Ttime52/toktickit/pull/64)
 - My comment: Everything looks good overall. One small consistency issue remains: the spec uses TIMESTAMPTZ, while the Prisma schema/migration use TIMESTAMP(3). Please align these so the documentation matches the implementation.
 - Partner's response: Already fixed the Prisma schema/migration to use the timestamptz. ple re-check.
+
+**feature/24-actions-taken-api**
+PR: [#65](https://github.com/Ttime52/toktickit/pull/65)
+- My comment:
+    Requesting changes because the implementation does not yet match the documented concurrency/idempotency contract.
+Main blockers:
+    - Idempotency-Key is optional but documented as required.
+    - Ticket/Action If-Match preconditions are optional, with missing versions defaulting to current DB versions.
+    - Idempotency uses a process-local Map instead of durable persistence.
+    - Tests do not cover missing/malformed/stale preconditions, replay/conflict behavior, or rollback safety.
+Authorization and basic create/read/update behavior look correct. The Lab 1/2 failures appear to be pre-existing baseline failures rather than regressions from this PR.
+- Partner's response: Summary
+
+    - Enforced Idempotency-Key, If-Match, and expectedTicketVersion according to the API contract
+    - Added durable idempotency persistence using PostgreSQL transactions
+    - Properly handled replay/conflict and stale-write scenarios (HTTP 409, 412, 428)
+    - Implemented Ticket/Action ETags and optimistic concurrency control
+    - Added integration tests for preconditions, replays, conflicts, and rollback safety
+
+        Testing
+        - npm run build passed
+        - Lab 3/4: 39 tests passed
+        - Lab 1/2: Still contains the original baseline failures as noted in the PR review
+
+**feature/25-actions-taken-ui*
+PR: [#66](https://github.com/Ttime52/toktickit/pull/66)
+- My comment:
+- Partner's response:
