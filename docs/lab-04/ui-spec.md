@@ -1,6 +1,6 @@
 # Lab 4 UI Specification
 
-**Status:** Proposed UI increment. [specification.md](specification.md) is authoritative for rules/metrics/roles; [api-spec.md](api-spec.md) defines payloads and filters; [tests.md](tests.md) defines planned evidence. No Sprint 4 screen is claimed implemented.
+**Status:** The Issue 29 Actions Taken UI is implemented and verified. This contract also defines planned UI work for later Sprint 4 Issues 30–33, which is not claimed implemented. [specification.md](specification.md) is authoritative for rules/metrics/roles; [api-spec.md](api-spec.md) defines payloads and filters; [tests.md](tests.md) records implemented, manual-only, and planned evidence.
 
 ## 1. Design Principles and Application Shell
 
@@ -8,7 +8,7 @@ Extend React AppShell and its existing hash navigation. Reuse `theme.css` Zen Gr
 
 Reuse existing detail sections and any existing tab conventions; do not replace Ticket Detail with a dashboard or invent a separate navigation system. Dashboard is the normal post-login starting screen after mandatory password change; permitted deep links remain intact. Active links use `aria-current=page`. Maintain current authenticated name/role, mobile menu, Logout and existing user administration navigation.
 
-| Role | Navigation / proposed hash paths |
+| Role | Navigation / Lab 4 hash paths |
 |---|---|
 | Requester | Dashboard `#/dashboard`, My Tickets `#/tickets`, Create Ticket `#/tickets/new` |
 | IT Staff | Dashboard `#/staff/dashboard`, Ticket Queue `#/staff/tickets` |

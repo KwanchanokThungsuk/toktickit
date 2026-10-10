@@ -9,9 +9,12 @@ const prisma = getPrisma();
 const password = "Lab4ActionsPassword1!";
 let requester: any; let otherRequester: any; let staff: any; let admin: any; let inactive: any;
 let ticket: any; let category: any; let system: any;
+const ticketIds = new Set<number>();
 async function freshTicket(requesterId = requester.id) {
   const n = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return prisma.ticket.create({ data: { ticketNumber: `TKT-LAB4-${n}`, requesterId, categoryId: category.id, relatedSystemId: system.id, summary: "Isolated Actions fixture", description: "Isolated Actions fixture", currentStatus: "IN_PROGRESS" } });
+  const created = await prisma.ticket.create({ data: { ticketNumber: `TKT-LAB4-${n}`, requesterId, categoryId: category.id, relatedSystemId: system.id, summary: "Isolated Actions fixture", description: "Isolated Actions fixture", currentStatus: "IN_PROGRESS" } });
+  ticketIds.add(created.id);
+  return created;
 }
 function expectActionDto(action: any) {
   expect(Object.keys(action).sort()).toEqual([
@@ -41,14 +44,17 @@ describe("Lab 4 Actions Taken API", () => {
     category = await prisma.category.create({ data: { name: `Lab4 Category ${suffix}` } });
     system = await prisma.relatedSystem.create({ data: { name: `Lab4 System ${suffix}` } });
     ticket = await prisma.ticket.create({ data: { ticketNumber: `TKT-LAB4-${suffix}`, requesterId: requester.id, categoryId: category.id, relatedSystemId: system.id, summary: "Lab 4 Actions", description: "Actions fixture", currentStatus: "IN_PROGRESS" } });
+    ticketIds.add(ticket.id);
   });
   afterAll(async () => {
-    if (!ticket) return;
-    await prisma.actionTaken.deleteMany({ where: { ticketId: ticket.id } }).catch(() => undefined);
-    await prisma.ticket.delete({ where: { id: ticket.id } }).catch(() => undefined);
-    await prisma.category.delete({ where: { id: category.id } }).catch(() => undefined);
-    await prisma.relatedSystem.delete({ where: { id: system.id } }).catch(() => undefined);
-    await prisma.user.deleteMany({ where: { id: { in: [requester.id, otherRequester.id, staff.id, admin.id, inactive.id] } } }).catch(() => undefined);
+    const ids = [...ticketIds];
+    if (ids.length) {
+      await prisma.actionTaken.deleteMany({ where: { ticketId: { in: ids } } });
+      await prisma.ticket.deleteMany({ where: { id: { in: ids } } });
+    }
+    if (category) await prisma.category.delete({ where: { id: category.id } });
+    if (system) await prisma.relatedSystem.delete({ where: { id: system.id } });
+    if (requester && otherRequester && staff && admin && inactive) await prisma.user.deleteMany({ where: { id: { in: [requester.id, otherRequester.id, staff.id, admin.id, inactive.id] } } });
   });
 
   it("creates Draft and Completed Actions and makes same-key retry idempotent", async () => {

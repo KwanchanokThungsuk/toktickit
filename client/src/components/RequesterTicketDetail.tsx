@@ -15,6 +15,7 @@
   } from "../api";
   import type { BadgeVariant } from "./Badge";
   import { PublicComments } from "./CommunicationPanel";
+  import ActionsTakenPanel from "./ActionsTakenPanel";
   const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
   interface RequesterTicketDetailProps {
@@ -111,6 +112,10 @@
         active = false;
       };
     }, [ticketId]);
+
+    const refreshTicket = () => {
+      fetchTicket(ticketId).then(setTicket).catch((reason) => setError(reason instanceof Error ? reason.message : "Unable to load ticket"));
+    };
 
     if (isLoading) {
       return <Loading message="Loading ticket details..." />;
@@ -598,6 +603,7 @@
         </section>
 
         <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
+        <ActionsTakenPanel ticketId={ticket.id} role="REQUESTER" ticketStatus={ticket.currentStatus} onTicketRefreshRequested={refreshTicket} />
 
         {removingAttachment ? (
           <div

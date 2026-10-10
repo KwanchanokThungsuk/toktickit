@@ -4,6 +4,7 @@ import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
 import { fetchTicket, type TicketDetail } from "../../src/api.detail";
 import {
   downloadAttachment,
+  fetchActionsTaken,
   removeAttachment,
   uploadAttachment,
 } from "../../src/api";
@@ -14,6 +15,7 @@ vi.mock("../../src/api.detail", () => ({
 
 vi.mock("../../src/api", () => ({
   downloadAttachment: vi.fn(),
+  fetchActionsTaken: vi.fn(),
   removeAttachment: vi.fn(),
   uploadAttachment: vi.fn(),
 }));
@@ -54,6 +56,7 @@ beforeEach(() => {
 
 
   vi.mocked(fetchTicket).mockResolvedValue(ticket);
+  vi.mocked(fetchActionsTaken).mockResolvedValue({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0, ticketVersion: 1 });
 
   vi.mocked(downloadAttachment).mockResolvedValue({
     blob: new Blob(["preview"], {
