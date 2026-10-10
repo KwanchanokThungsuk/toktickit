@@ -1,8 +1,47 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export interface AuthUser { id: number; name: string; email: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; mustChangePassword: boolean }
+export interface ActionUserSummary { id: number; name: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; }
+export type ActionStatus = "DRAFT" | "COMPLETED" | "CANCELLED";
+export interface ActionTaken {
+  id: number; ticketId: number; actionDateTime: string; actionDescription: string;
+  result: string | null; status: ActionStatus; createdBy: ActionUserSummary;
+  performedBy: ActionUserSummary | null; assignedTo: ActionUserSummary | null;
+  followUpRequired: boolean; followUpNote: string | null; attachmentNotes: string | null;
+  completedAt: string | null; createdAt: string; updatedAt: string; version: number;
+}
+export interface ActionsTakenListResponse {
+  items: ActionTaken[]; page: number; pageSize: number; totalItems: number;
+  totalPages: number; ticketVersion: number;
+}
+export interface ActionMutationResponse { action: ActionTaken; ticketVersion: number; }
+export interface CreateActionTakenInput {
+  actionDescription: string; result: string | null; followUpRequired: boolean; followUpNote: string | null;
+  attachmentNotes: string | null; assignedToUserId: number | null; status: "DRAFT" | "COMPLETED";
+  expectedTicketVersion: number; requestKey: string;
+}
+export interface UpdateActionTakenInput {
+  actionDescription: string; result: string | null; followUpRequired: boolean; followUpNote: string | null;
+  attachmentNotes: string | null; assignedToUserId: number | null; status: ActionStatus;
+  expectedTicketVersion: number; expectedVersion: number;
+}
+export class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 let csrfToken = "";
 async function csrf() { const r = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" }); const b = await r.json(); csrfToken = b.csrfToken; return csrfToken; }
 async function csrfHeader() { if (!csrfToken) await csrf(); return { "X-CSRF-Token": csrfToken }; }
+export async function fetchActionsTaken(ticketId: number, page = 1, pageSize = 20): Promise<ActionsTakenListResponse> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken?page=${page}&pageSize=${pageSize}`, { credentials: "include" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Actions Taken");
+  return body as ActionsTakenListResponse;
+}
+async function actionMutation(path: string, method: "POST" | "PATCH", body: CreateActionTakenInput | UpdateActionTakenInput): Promise<ActionMutationResponse> {
+  const response = await fetch(`${API_URL}${path}`, { method, credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify(body) });
+  const payload = await response.json();
+  if (!response.ok) throw new ApiError(response.status, payload.error?.code ?? "REQUEST_FAILED", payload.error?.message ?? "Unable to save Action");
+  return payload as ActionMutationResponse;
+}
+export function createActionTaken(ticketId: number, body: CreateActionTakenInput) { return actionMutation(`/api/staff/tickets/${ticketId}/actions-taken`, "POST", body); }
+export function updateActionTaken(ticketId: number, actionId: number, body: UpdateActionTakenInput) { return actionMutation(`/api/staff/tickets/${ticketId}/actions-taken/${actionId}`, "PATCH", body); }
 export async function login(email: string, password: string) { await csrf(); const r = await fetch(`${API_URL}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ email, password }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to sign in"); await csrf(); return b.user as AuthUser; }
 export async function currentUser() { const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" }); if (!r.ok) return null; return ((await r.json()) as { user: AuthUser }).user; }
 export async function logout() { if (!csrfToken) await csrf(); await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } }); csrfToken = ""; }

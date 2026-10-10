@@ -2,9 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
 import { fetchTicket, type TicketDetail } from "../../src/api.detail";
+import { fetchActionsTaken } from "../../src/api";
 
 vi.mock("../../src/api.detail", () => ({ fetchTicket: vi.fn() }));
-vi.mock("../../src/api", () => ({ downloadAttachment: vi.fn(), removeAttachment: vi.fn(), uploadAttachment: vi.fn() }));
+vi.mock("../../src/api", () => ({ downloadAttachment: vi.fn(), fetchActionsTaken: vi.fn(), removeAttachment: vi.fn(), uploadAttachment: vi.fn() }));
 
 const requester = { id: 3, name: "David Lee", email: "david@example.com" };
 const ticket: TicketDetail = {
@@ -24,6 +25,7 @@ const ticket: TicketDetail = {
 describe("AttachmentSection", () => {
   beforeEach(() => {
     vi.mocked(fetchTicket).mockResolvedValue(ticket);
+    vi.mocked(fetchActionsTaken).mockResolvedValue({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0, ticketVersion: 1 });
   });
 
   it("shows removed metadata without download or remove controls", async () => {
