@@ -7,7 +7,8 @@
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
 | [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71) | feature/27-lab3-spec-contract | Comment and Approved |
-| [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72) | feature/28-actions-taken-foundation |  |
+| [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72) | feature/28-actions-taken-foundation | Comment and Approved  |
+| [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |   |
 
 **feature/27-lab3-spec-contract**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
@@ -24,8 +25,18 @@ PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
 
 **feature/28-actions-taken-foundation**
 PR: [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72)
-- Reviewer comment I received:
-- How I responded:
+- Reviewer comment I received: The Actions Taken backend foundation is strong overall, but I found three consistency/completion issues before approval:
+
+    1. The Action API currently returns the raw Prisma object (safeAction returns the object unchanged), so the actual response exposes internal fields such as requestKey/foreign-key IDs and uses creator, performer, and assignee, while the approved API contract defines createdBy, performedBy, and assignedTo and excludes private implementation data. Please serialize the documented Action DTO explicitly and cover the response shape in tests.
+    2. The Lab 4 required seed data calls for realistic Tickets covering the major Ticket statuses. The current clean seed only creates NEW, OPEN, and IN_PROGRESS Tickets. Please extend the seed/status coverage while keeping the existing zero/one/multiple Action fixtures.
+    3. docs/lab-04/reviewer.md still links PR #64/#65 and contains feature/27-lab3-spec-contract, although the actual Lab 4 PRs are #71/#72. Please correct the review evidence.
+    The migration preservation, authorization, Action lifecycle, idempotency, terminal immutability, and stale-update handling otherwise look aligned with the Lab 4 requirements.
+- How I responded: Thanks for the review. I’ve addressed both requested fixes:
+
+    - The Actions Taken API now uses an explicit DTO serializer for all GET/POST/PATCH and retry/recovery paths, exposing createdBy, performedBy, and assignedTo while hiding internal fields such as requestKey and raw foreign-key IDs.
+    - The seed now covers all eight Ticket statuses while preserving the existing 0/1/multiple Action fixtures, with updated seed integration coverage.
+    - fixed reveiwer.md
+    I also re-ran the full local verification successfully: 17/17 test files passed and 100/100 tests passed. Build and Prisma validation also pass.
 
 ## Pull Requests I reviewed for my partner
 **feature/13-specification-docs-lab3**
@@ -41,3 +52,8 @@ PR: [#63](https://github.com/Ttime52/toktickit/pull/63)
     - Clarify actionAt behavior: editable by IT Staff/Admin, read-only for Requester. UI uses Asia/Bangkok and sends explicit UTC without auto-updating to current time on edit.
     - Add UI-to-API field mapping and update test cases to cover these behaviors and codes.
     - Resolve Administrator ambiguity to retain the existing IT Priority control.
+
+**feature/23-actions-taken-model**
+PR: [#64](https://github.com/Ttime52/toktickit/pull/64)
+- My comment: Everything looks good overall. One small consistency issue remains: the spec uses TIMESTAMPTZ, while the Prisma schema/migration use TIMESTAMP(3). Please align these so the documentation matches the implementation.
+- Partner's response: Already fixed the Prisma schema/migration to use the timestamptz. ple re-check.

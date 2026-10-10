@@ -1,6 +1,6 @@
 # Lab 4 – Sprint 4 Engineering Specification
 
-**Status:** Proposed engineering contract; no Sprint 4 implementation or test success is claimed. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
+**Status:** The Issue 28 Actions Taken backend foundation and Issue 29 Actions Taken UI are implemented and verified. This contract continues to govern those delivered increments and the planned Issue 30–33 workflow, dashboard, responsive/accessibility, and release work. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
 
 **Authority:** [Lab 4 handout](Lab_4_sheet.pdf), especially sections 4–8 and submission Part 6. The [Lab 3 specification](../lab-03/specification.md), [UI](../lab-03/ui-spec.md), [API](../lab-03/api-spec.md), [tests](../lab-03/tests.md), peer review record, and actual source establish the inherited baseline. [UI details](ui-spec.md), [REST contract](api-spec.md), and [test traceability](tests.md) complete this contract.
 
@@ -33,7 +33,7 @@ This contract adds no new file-upload mechanism, Action deletion, user deletion,
 
 ### Inherited implementation and gap
 
-| Area | Observed Lab 3 baseline | Proposed Lab 4 increment |
+| Area | Observed Lab 3 baseline | Lab 4 increment |
 |---|---|---|
 | Authentication | Express cookie sessions; 8-hour inactivity; CSRF; mandatory password change | Reuse; close missing password-change/CSRF guards on protected inherited routes |
 | Tickets | Eight Prisma statuses; one nullable `assignedToUserId`; separate Requested/IT Priority | Same status edges; resolution gate; integer concurrency version; formal resolution timestamp |
@@ -285,4 +285,4 @@ This is a future product-release checklist, not the completion claim for this do
 | DD-09 | Use integer versions, ordinary atomic database writes, and frontend pending-state protection. A simple uniqueness key may be used for duplicate creates; no additional concurrency infrastructure is required. |
 | DD-10 | Leave unknown legacy resolution instants null and explicitly label updatedAt fallback estimates. Existing records still contribute to useful dashboards without fabricated dates. |
 
-Unresolved handout wording is exposed in DD-01 through DD-06; the proposed contract provides one implementable interpretation for each. These assumptions should be reviewed before feature implementation. No document-only review here claims they have instructor approval.
+Unresolved handout wording is exposed in DD-01 through DD-06; the contract provides one implementable interpretation for each. These assumptions should be reviewed before implementing remaining Sprint 4 work. No document-only review here claims they have instructor approval.

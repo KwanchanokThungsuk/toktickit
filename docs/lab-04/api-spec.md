@@ -1,6 +1,6 @@
 # Lab 4 REST API Specification
 
-**Status:** Proposed extensions, not existing endpoints or verified implementation. [specification.md](specification.md) defines rules, matrix and metric predicates; [ui-spec.md](ui-spec.md) defines controls; [tests.md](tests.md) maps criteria. Retain Lab 3 `/api/tickets` and `/api/staff/tickets` naming, integer IDs, JSON bodies, ISO timestamps and safe error envelope. IDs here reference Lab 4.
+**Status:** The Issue 28 Actions Taken backend foundation is implemented and verified, including its documented API surface. This contract also defines planned API work for later Sprint 4 Issues 30–33, which is not claimed implemented. [specification.md](specification.md) defines rules, matrix and metric predicates; [ui-spec.md](ui-spec.md) defines controls; [tests.md](tests.md) records implemented, manual-only, and planned evidence. Retain Lab 3 `/api/tickets` and `/api/staff/tickets` naming, integer IDs, JSON bodies, ISO timestamps and safe error envelope. IDs here reference Lab 4.
 
 ## 1. Authentication / Authorization Expectations
 
@@ -8,7 +8,7 @@ Reuse the server-managed `toktickit_session` HttpOnly cookie (Secure under HTTPS
 
 Check authentication, password-change state, role and write CSRF before resource lookup/business mutation. Requester-owned resources use an ownership-filtered lookup; missing/unowned resources share safe `404` feedback. Ignore no identity override silently on new endpoints: reject unrecognized body/query fields with the endpoint's validation status. Performer, creator, role, requester identity and backend timestamps cannot be client-assigned.
 
-Administrator now shares operational Staff access under Lab 4 section 4.3 (DD-01). Existing tests expecting Administrator queue/status/comment/note denial must be intentionally updated in the future implementation. User Management remains Administrator-only; Requester Ticket creation/list and file APIs remain Requester-only. Existing endpoint defaults/envelopes persist except explicitly listed extensions.
+Administrator now shares operational Staff access under Lab 4 section 4.3 (DD-01). Existing tests expecting Administrator queue/status/comment/note denial must be intentionally updated when the applicable later Sprint 4 endpoint work is implemented. User Management remains Administrator-only; Requester Ticket creation/list and file APIs remain Requester-only. Existing endpoint defaults/envelopes persist except explicitly listed extensions.
 
 ## 2. Shared Representations
 
