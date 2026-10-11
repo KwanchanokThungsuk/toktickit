@@ -35,6 +35,7 @@ export default function ActionTakenForm({ mode, action, ticketVersion, assignees
     return Object.keys(next).length === 0;
   };
   const submit = (status: ActionStatus) => {
+    if (submitting || readOnly) return;
     if (!validate(status)) return;
     const common = { actionDescription: description, result: result.trim() || null, assignedToUserId: assignedToUserId ? Number(assignedToUserId) : null, followUpRequired: status === "CANCELLED" ? false : followUpRequired, followUpNote: status === "CANCELLED" || !followUpRequired ? null : followUpNote.trim() || null, attachmentNotes: attachmentNotes.trim() || null, status, expectedTicketVersion: ticketVersion };
     onSubmit(mode === "create" ? { ...common, status: status as "DRAFT" | "COMPLETED", requestKey: requestKey.current } : { ...common, expectedVersion: action!.version });

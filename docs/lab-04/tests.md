@@ -8,12 +8,12 @@
 
 | Surface | Command / check | Verified result |
 |---|---|---|
-| Server | `npm test` | **20/20 test files, 130/130 tests passed** in three consecutive full-suite runs |
+| Server | `npm test` | **20/20 test files, 133/133 tests passed** |
 | Server | `npm run build` | Passed |
 | Server | `npx prisma validate` | Passed |
-| Client | `npm test` | **16/16 test files, 129/129 tests passed** |
+| Client | `npm test` | **16/16 test files, 135/135 tests passed** |
 | Client | `npm run build` | Passed |
-| Repository | `git diff --check` | Passed |
+| Repository | `git diff --check` scoped to Issue 32 paths | Passed |
 
 The three server runs followed removal of an unsafe `prisma.$disconnect()` from `server/tests/lab-03/comments-notes.api.test.ts`. That suite had disconnected the shared application Prisma singleton while parallel API files could still use it, causing nondeterministic `socket hang up` and CSRF setup failures. API integration test files now run sequentially because they share one test database and dashboard global aggregate/parity assertions require a stable database snapshot. This is test-only configuration; application/runtime behavior is unchanged.
 
@@ -31,12 +31,12 @@ The three server runs followed removal of an unsafe `prisma.$disconnect()` from 
 | Evidence ID | Test file | Coverage proved by current assertions | Status |
 |---|---|---|---|
 | DB-ISO-01 | `server/tests/database-url.test.ts` | Test URL required in test mode; no development fallback; matching database targets refused | IMPLEMENTED / AUTOMATED |
-| ACTION-01 | `server/tests/lab-04/actions-taken.api.test.ts` | Draft and Completed create; public response DTO; server-controlled fields rejected; Ticket version increment | IMPLEMENTED / AUTOMATED |
-| ACTION-02 | `server/tests/lab-04/actions-taken.api.test.ts` | Required `requestKey`; required Draft/Completed fields; follow-up dependency; submitted note persists as `null` when follow-up is false | IMPLEMENTED / AUTOMATED |
+| ACTION-01 | `server/tests/lab-04/actions-taken.api.test.ts` | Draft and Completed create; public response DTO; server-controlled fields rejected; Ticket version increment; stable `actionDateTime ASC, id ASC` list ordering; Action creation preserves Ticket Owner | IMPLEMENTED / AUTOMATED |
+| ACTION-02 | `server/tests/lab-04/actions-taken.api.test.ts` | Required `requestKey`; required Draft/Completed fields; follow-up dependency; submitted note persists as `null` when follow-up is false; 2,000-character persisted text accepted and 2,001 rejected without partial create/update mutation | IMPLEMENTED / AUTOMATED |
 | ACTION-03 | `server/tests/lab-04/actions-taken.api.test.ts` | Draft edit, completion, cancellation, valid Staff/Admin assignment, explicit unassignment, invalid/inactive/non-staff assignee rejection | IMPLEMENTED / AUTOMATED |
-| ACTION-04 | `server/tests/lab-04/actions-taken.api.test.ts` | Completed/Cancelled PATCH rejection, unchanged terminal rows, and no DELETE route | IMPLEMENTED / AUTOMATED |
+| ACTION-04 | `server/tests/lab-04/actions-taken.api.test.ts` | Completed/Cancelled PATCH rejection, unchanged terminal rows and Ticket version, and no DELETE route | IMPLEMENTED / AUTOMATED |
 | ACTION-05 | `server/tests/lab-04/actions-taken.api.test.ts` | Requester-owned reads, foreign Ticket safe 404, stable ordering, pagination bounds | IMPLEMENTED / AUTOMATED |
-| ACTION-06 | `server/tests/lab-04/actions-taken.api.test.ts` | Requester writes denied; Staff/Admin action capability; missing CSRF/auth handling | IMPLEMENTED / AUTOMATED |
+| ACTION-06 | `server/tests/lab-04/actions-taken.api.test.ts` | Requester writes denied; Staff/Admin action capability; missing CSRF/auth handling; forced-password Staff/Admin writes denied without mutation | IMPLEMENTED / AUTOMATED |
 | ACTION-07 | `server/tests/lab-04/actions-taken.api.test.ts` | Stale Ticket/Action versions return `409 STALE_UPDATE` without partial mutation; inactive Ticket writes rejected | IMPLEMENTED / AUTOMATED |
 | CONFLICT-01 | `server/tests/lab-04/actions-taken.api.test.ts` | Same-key retry returns existing Action; different key creates another Action; concurrent same-key POST creates one row and increments Ticket version once | IMPLEMENTED / AUTOMATED |
 | MIG-01 | `server/tests/lab-04/migration-regression.integration.test.ts` | Real migration preserves representative Users, Ticket IDs/FKs/content/status/priority/assignment, Attachments, Public Comments, Internal Notes; version 1; null `resolvedAt`; no historical Actions | IMPLEMENTED / AUTOMATED |
@@ -51,7 +51,7 @@ There is no separate `concurrency.integration.test.ts`; the Actions Taken API te
 | UI-ACTION-01 | `client/tests/lab-04/ActionsTakenPanel.test.tsx` | Loading, empty, list/detail view, Requester read-only access, no Requester mutation controls, Staff/Admin create controls, paging | IMPLEMENTED / AUTOMATED |
 | UI-ACTION-02 | `client/tests/lab-04/ActionTakenForm.test.tsx` | Description/result/follow-up validation, 2,000-character description acceptance, 2,001-character rejection, attachment-note limit, follow-up toggle preservation, create/edit payloads | IMPLEMENTED / AUTOMATED |
 | UI-ACTION-03 | `client/tests/lab-04/ActionTakenForm.test.tsx` | Stable create `requestKey` across rerender; Draft edit; completion/cancellation version payloads | IMPLEMENTED / AUTOMATED |
-| UI-STATE-01 | `client/tests/lab-04/ActionsTakenPanel.test.tsx` | GET failure/retry; `STALE_UPDATE` refresh with local draft preservation; `TICKET_NOT_ACTIVE` preservation and reactivation recovery; `ACTION_IMMUTABLE` and terminal-after-stale review-only behavior | IMPLEMENTED / AUTOMATED |
+| UI-STATE-01 | `client/tests/lab-04/ActionsTakenPanel.test.tsx` | GET failure/retry; `STALE_UPDATE` refresh with local draft preservation; `TICKET_NOT_ACTIVE` preservation and reactivation recovery; `ACTION_IMMUTABLE` and terminal-after-stale review-only behavior; pending create disables Saving control and permits exactly one mutation across repeated click/form-submit attempts | IMPLEMENTED / AUTOMATED |
 | UI-A11Y-01 | `client/tests/lab-04/ActionTakenForm.test.tsx` | Associated labels, accessible validation messages, actual focus on first invalid field | IMPLEMENTED / AUTOMATED |
 
 The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail, and Administrator Ticket Inspection. Component tests exercise role modes; server tests prove corresponding authorization.
@@ -62,7 +62,7 @@ The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail,
 |---|---|---|
 | Responsive table-to-card presentation | Component/CSS implementation switches below the desktop breakpoint | MANUAL ONLY |
 | Long text, long names, and 2,000-character display | No browser viewport or screenshot test | MANUAL ONLY |
-| 1440px, tablet, mobile, zoom, and horizontal-scroll behavior | No Playwright responsive suite exists | MANUAL ONLY |
+| 1440px, tablet, mobile, zoom, and horizontal-scroll behavior | Legacy Lab 2–3 Playwright responsive suites exist; no Lab 4 responsive/browser suite covers these new screens | MANUAL ONLY |
 | Mobile touch targets and keyboard-only traversal | Semantic controls and focus styles exist; no browser-level test | MANUAL ONLY |
 | View/Edit control grouping and Staff Queue layout | Scoped UI/CSS implementation exists; manual visual review required | MANUAL ONLY |
 
@@ -99,30 +99,40 @@ Issue 31 backend evidence IDs:
 
 Existing Lab 1–3 regression suites continue to run in the verified server/client results above. Future work must retain authorization, ownership, file, comment/note, account-safety, and Ticket regressions.
 
-## 8. Acceptance-Criteria Traceability
+## 8. Implemented Automated Coverage — Issue 32
+
+| Evidence ID | Test file | Coverage proved by current assertions | Status |
+|---|---|---|---|
+| REG-AC-01 | `server/tests/lab-04/actions-taken.api.test.ts` | Action list order is `actionDateTime ASC, id ASC`; creating an Action does not change the Ticket Owner / assignment | IMPLEMENTED / AUTOMATED |
+| REG-AC-02 | `server/tests/lab-04/actions-taken.api.test.ts` | Every persisted Action text field accepts 2,000 characters and rejects 2,001; rejected creates/updates preserve Action and Ticket state and versions | IMPLEMENTED / AUTOMATED |
+| REG-AC-05 | `server/tests/lab-04/actions-taken.api.test.ts` | Cancelled Action PATCH is rejected; persisted terminal Action and parent Ticket version remain unchanged | IMPLEMENTED / AUTOMATED |
+| REG-AC-14 | `server/tests/lab-04/actions-taken.api.test.ts` | Forced-password IT Staff and Administrators cannot create or patch Actions; no Action or Ticket-version mutation occurs | IMPLEMENTED / AUTOMATED |
+| REG-AC-20 | `client/tests/lab-04/ActionsTakenPanel.test.tsx` | Deferred create shows disabled `Saving…`; repeated click and programmatic form submit produce exactly one mutation; normal success completes after resolution | IMPLEMENTED / AUTOMATED |
+
+## 9. Acceptance-Criteria Traceability
 
 | AC | Current evidence | Status |
 |---|---|---|
-| AC-01 | ACTION-01, ACTION-05, UI-ACTION-01 | IMPLEMENTED / AUTOMATED |
-| AC-02 | ACTION-02, UI-ACTION-02 | IMPLEMENTED / AUTOMATED for current cases; broader field-boundary expansion is future work |
+| AC-01 | ACTION-01, ACTION-05, REG-AC-01, UI-ACTION-01 | IMPLEMENTED / AUTOMATED |
+| AC-02 | ACTION-02, REG-AC-02, UI-ACTION-02 | IMPLEMENTED / AUTOMATED |
 | AC-03 | ACTION-03, ACTION-04, UI-ACTION-03 | IMPLEMENTED / AUTOMATED |
 | AC-04 | ACTION-05, ACTION-06, UI-ACTION-01 | IMPLEMENTED / AUTOMATED |
-| AC-05 | ACTION-04, ACTION-07, UI-STATE-01 | IMPLEMENTED / AUTOMATED |
+| AC-05 | ACTION-04, ACTION-07, REG-AC-05, UI-STATE-01 | IMPLEMENTED / AUTOMATED |
 | AC-06 | WORKFLOW-01 | IMPLEMENTED / AUTOMATED |
 | AC-07 | WORKFLOW-02 | IMPLEMENTED / AUTOMATED |
 | AC-08 | WORKFLOW-03 | IMPLEMENTED / AUTOMATED |
 | AC-09–AC-12 | DASH-01–DASH-04; DASH-UI-01–DASH-UI-03 | IMPLEMENTED / AUTOMATED for the covered backend route slice, deterministic boundary evidence, drill-down parity, dashboard component states, and role/hash routing; performance remains planned |
-| AC-13 | WORKFLOW-04, ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED for current role/auth cases; direct forced-password Action-route case is future work |
-| AC-14 | Inherited auth/session regressions | IMPLEMENTED / AUTOMATED regression coverage |
+| AC-13 | WORKFLOW-04, ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED |
+| AC-14 | Inherited auth/session regressions, REG-AC-14 | IMPLEMENTED / AUTOMATED |
 | AC-15 | ACTION-07, CONFLICT-01, CONFLICT-03, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED for idempotency/stale handling; browser-level unknown-network recovery is planned |
 | AC-16 | MIG-01 | IMPLEMENTED / AUTOMATED for current additive migration evidence |
 | AC-17 | Inherited server/client regressions | IMPLEMENTED / AUTOMATED regression coverage |
 | AC-18 | Responsive/styles manual review | MANUAL ONLY |
 | AC-19 | UI-A11Y-01 plus keyboard/zoom review | PARTIAL — automated form semantics/focus; browser checks MANUAL ONLY |
-| AC-20 | UI-STATE-01 | IMPLEMENTED / AUTOMATED for covered panel states; full browser failure matrix remains planned |
+| AC-20 | UI-STATE-01, REG-AC-20 | IMPLEMENTED / AUTOMATED for duplicate-submit prevention and covered panel states; browser failure matrix remains planned |
 | AC-21 | SEED-01 | IMPLEMENTED / AUTOMATED |
 | AC-22–AC-23 | Performance and release work | PLANNED / FUTURE ISSUE 33 |
 
-## 9. Maintenance Rules
+## 10. Maintenance Rules
 
 Record future results with command, environment, and actual counts. Never mark a test as passed merely because a plan row exists. Database-backed tests must use a test-only database, own uniquely named fixtures, and clean in foreign-key-safe order. Do not use a suite-local disconnect on the shared application Prisma singleton.

@@ -9,7 +9,10 @@
 | [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71) | feature/27-lab3-spec-contract | Comment and Approved |
 | [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72) | feature/28-actions-taken-foundation | Comment and Approved  |
 | [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |  Comment and Approved |
-| [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow |  |
+| [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow | Comment and Approved |
+| [#75](https://github.com/KwanchanokThungsuk/toktickit/pull/75) | feature/31-it-staff-requester-dashboards | Comment and Approved |
+| [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76) | feature/32-lab4-tests-regression |  |
+| [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) |  |  |
 
 **feature/27-lab3-spec-contract**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
@@ -68,6 +71,44 @@ PR: [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74)
 No blocking workflow issues found.
 - How I responded: Merged
 
+**feature/31-it-staff-requester-dashboards**
+PR: [#75](https://github.com/KwanchanokThungsuk/toktickit/pull/75)
+- Reviewer: I found a few issues in the Dashboard → Ticket flow that should be fixed before approval.
+
+    1. Requester Recently Resolved drill-down fails
+    The dashboard sends recentlyResolvedFrom/To, but MyTickets also adds the default sortBy and sortOrder. The backend rejects this combination, so the page can return 400 INVALID_QUERY.
+    2. Requester filters can conflict after drill-down
+    If the user enters My Tickets with statusGroup=active and then selects a specific currentStatus, both filters are kept. The backend rejects statusGroup + currentStatus.
+    3. Admin cannot open Ticket Detail from the new dashboard
+    Admin dashboard links use #/staff/tickets/:id, which renders StaffTicketDetail and calls GET /api/staff/tickets/:id. However, that endpoint still uses the staff-only guard, so Administrators are rejected even though the UI routes them there.
+    Please normalize/clear mutually exclusive Requester filters, allow Administrator access to the operational Ticket Detail endpoint, and add tests for the full Dashboard → Ticket/List flows.
+
+    The rest of the dashboard metrics, ownership scoping, empty/error states, and drill-down definitions look good.
+- How I responded: Thanks for the review. I fixed all three Dashboard → Ticket flow issues:
+
+    - Recently Resolved no longer sends conflicting sortBy / sortOrder.
+    - Selecting a specific Requester status clears statusGroup.
+    - Administrator can open operational Ticket Detail and use the related operational actions.
+    I also added Dashboard → destination flow coverage and authorization regression tests.
+
+    Verification is green:
+    - Client: 133/133 tests passed
+    - Server: 130/130 tests passed
+    - Client/server builds passed
+    - Prisma validation passed
+    - git diff --check passed
+    Ready for re-review.
+
+**feature/32-lab4-tests-regression**
+PR: [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76)
+- Reviewer: 
+- How I responded: 
+
+**feature/33**
+PR: [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77)
+- Reviewer: 
+- How I responded: 
+
 ## Pull Requests I reviewed for my partner
 **feature/13-specification-docs-lab3**
 PR: [#63](https://github.com/Ttime52/toktickit/pull/63)
@@ -113,5 +154,15 @@ Authorization and basic create/read/update behavior look correct. The Lab 1/2 fa
 
 **feature/25-actions-taken-ui*
 PR: [#66](https://github.com/Ttime52/toktickit/pull/66)
-- My comment:
-- Partner's response:
+- My comment: The backend/setup side looks good and I was able to reproduce the fresh database setup after regenerating Prisma Client.
+The remaining concerns are on the UI test coverage: stale-write recovery/idempotent retry, Staff/Admin integration, and documented validation boundaries are still not fully covered.
+I’d like those tests added before approval.
+- Partner's response: Added UI test coverage. pls re-check.
+
+**feature/26-ticket-workflow**
+PR: [#67](https://github.com/Ttime52/toktickit/pull/67)
+- My comment: I found one remaining contract mismatch in the workflow UI.
+    The Lab 4 UI spec requires the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox, and keyboard/focus behavior.
+    The current implementation renders those controls inline in the Work Controls section instead of using the required dialog.
+    Please update the Resolved/Closed workflow UI to match the documented confirmation-dialog behavior before approval.
+- Partner's response: Fixed the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox,  and keyboard/focus behavior. Ready to re-review.
