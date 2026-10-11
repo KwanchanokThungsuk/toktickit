@@ -79,6 +79,55 @@ describe("Lab 4 Actions Taken API", () => {
     expect(created.status).toBe(201); expect(created.body.action.followUpNote).toBeNull();
   });
 
+  it("keeps the Ticket owner unchanged and lists Actions by actionDateTime then id", async () => {
+    const isolated = await freshTicket();
+    await prisma.ticket.update({ where: { id: isolated.id }, data: { assignedToUserId: admin.id } });
+    const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
+    const created = await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "Owner remains assigned", followUpRequired: false, expectedTicketVersion: 1, requestKey: `owner-order-${isolated.id}` });
+    expect(created.status).toBe(201);
+    expect((await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } })).assignedToUserId).toBe(admin.id);
+
+    const equalTime = new Date("2026-10-10T10:00:00.000Z");
+    const earlierTime = new Date("2026-10-10T09:00:00.000Z");
+    const laterTime = new Date("2026-10-10T11:00:00.000Z");
+    await prisma.actionTaken.update({ where: { id: created.body.action.id }, data: { actionDateTime: equalTime } });
+    const earlier = await prisma.actionTaken.create({ data: { ticketId: isolated.id, createdById: staff.id, actionDescription: "Earlier", followUpRequired: false, requestKey: `earlier-${isolated.id}`, actionDateTime: earlierTime } });
+    const equal = await prisma.actionTaken.create({ data: { ticketId: isolated.id, createdById: staff.id, actionDescription: "Equal", followUpRequired: false, requestKey: `equal-${isolated.id}`, actionDateTime: equalTime } });
+    const later = await prisma.actionTaken.create({ data: { ticketId: isolated.id, createdById: staff.id, actionDescription: "Later", followUpRequired: false, requestKey: `later-${isolated.id}`, actionDateTime: laterTime } });
+
+    const list = await agent.get(`/api/tickets/${isolated.id}/actions-taken?page=1&pageSize=20`);
+    expect(list.status).toBe(200);
+    expect(list.body.items.map((action: any) => action.id)).toEqual([earlier.id, created.body.action.id, equal.id, later.id]);
+  });
+
+  it("accepts 2,000-character Action text and rejects over-limit creates and edits without partial mutation", async () => {
+    const isolated = await freshTicket(); const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
+    const maximum = "x".repeat(2000); const tooLong = "x".repeat(2001);
+    const valid = { actionDescription: maximum, result: maximum, followUpRequired: true, followUpNote: maximum, attachmentNotes: maximum, expectedTicketVersion: 1 };
+
+    for (const field of ["actionDescription", "result", "followUpNote", "attachmentNotes"] as const) {
+      const rejected = await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ ...valid, [field]: tooLong, requestKey: `over-limit-create-${field}-${isolated.id}` });
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.error.code).toBe("VALIDATION_ERROR");
+      expect(await prisma.actionTaken.count({ where: { ticketId: isolated.id } })).toBe(0);
+      expect((await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } })).version).toBe(1);
+    }
+
+    const created = await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ ...valid, requestKey: `maximum-${isolated.id}` });
+    expect(created.status).toBe(201);
+    expect(created.body.action).toMatchObject({ actionDescription: maximum, result: maximum, followUpNote: maximum, attachmentNotes: maximum });
+    const beforeAction = await prisma.actionTaken.findUniqueOrThrow({ where: { id: created.body.action.id } });
+    const beforeTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } });
+
+    for (const field of ["actionDescription", "result", "followUpNote", "attachmentNotes"] as const) {
+      const rejected = await agent.patch(`/api/staff/tickets/${isolated.id}/actions-taken/${beforeAction.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: beforeTicket.version, expectedVersion: beforeAction.version, [field]: tooLong });
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.error.code).toBe("VALIDATION_ERROR");
+      expect(await prisma.actionTaken.findUniqueOrThrow({ where: { id: beforeAction.id } })).toMatchObject(beforeAction);
+      expect(await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } })).toMatchObject({ version: beforeTicket.version });
+    }
+  });
+
   it("validates follow-up, assignment, and server-controlled fields", async () => {
     const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
     const base = { actionDescription: "Validation", followUpRequired: true, expectedTicketVersion: (await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).version, requestKey: "test-validation-1" };
@@ -102,8 +151,37 @@ describe("Lab 4 Actions Taken API", () => {
     expect(created.status).toBe(201);
     const cancelled = await agent.patch(`/api/staff/tickets/${ticket.id}/actions-taken/${created.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: current.version + 1, expectedVersion: 1, status: "CANCELLED", result: "Cancelled explanation", assignedToUserId: null });
     expect(cancelled.status).toBe(200); expect(cancelled.body.action.followUpRequired).toBe(false); expect(cancelled.body.action.followUpNote).toBeNull();
-    const terminal = await agent.patch(`/api/staff/tickets/${ticket.id}/actions-taken/${cancelled.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: current.version + 2, expectedVersion: 2, result: "edit" });
+    const beforeCancelled = await prisma.actionTaken.findUniqueOrThrow({ where: { id: created.body.action.id } });
+    const beforeTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
+    const terminal = await agent.patch(`/api/staff/tickets/${ticket.id}/actions-taken/${cancelled.body.action.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: beforeTicket.version, expectedVersion: beforeCancelled.version, actionDescription: "edit", result: "edit", attachmentNotes: "edit" });
     expect(terminal.status).toBe(409);
+    expect(terminal.body.error.code).toBe("ACTION_IMMUTABLE");
+    expect(await prisma.actionTaken.findUniqueOrThrow({ where: { id: created.body.action.id } })).toMatchObject(beforeCancelled);
+    expect(await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).toMatchObject({ version: beforeTicket.version });
+  });
+
+  it("rejects Action writes by forced-password Staff and Administrators without mutation", async () => {
+    const isolated = await freshTicket(); const normal = await authenticatedAgent(staff.email, password);
+    const draft = await normal.agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", normal.csrfToken).send({ actionDescription: "Protected draft", followUpRequired: false, expectedTicketVersion: 1, requestKey: `forced-password-draft-${isolated.id}` });
+    expect(draft.status).toBe(201);
+    const beforeAction = await prisma.actionTaken.findUniqueOrThrow({ where: { id: draft.body.action.id } });
+    const beforeTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } });
+    const passwordHash = await hashPassword(password);
+    const forcedUsers = await Promise.all(["IT_STAFF", "ADMINISTRATOR"].map((role) => prisma.user.create({ data: { name: `Forced ${role}`, email: `forced-${role.toLowerCase()}-${isolated.id}@example.com`, role: role as any, passwordHash, mustChangePassword: true } })));
+    try {
+      for (const forced of forcedUsers) {
+        const { agent, csrfToken } = await authenticatedAgent(forced.email, password);
+        const create = await agent.post(`/api/staff/tickets/${isolated.id}/actions-taken`).set("X-CSRF-Token", csrfToken).send({ actionDescription: "Blocked create", followUpRequired: false, expectedTicketVersion: beforeTicket.version, requestKey: `forced-create-${forced.id}` });
+        expect(create.status).toBe(403); expect(create.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+        const patch = await agent.patch(`/api/staff/tickets/${isolated.id}/actions-taken/${beforeAction.id}`).set("X-CSRF-Token", csrfToken).send({ expectedTicketVersion: beforeTicket.version, expectedVersion: beforeAction.version, actionDescription: "Blocked patch" });
+        expect(patch.status).toBe(403); expect(patch.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+      }
+      expect(await prisma.actionTaken.findUniqueOrThrow({ where: { id: beforeAction.id } })).toMatchObject(beforeAction);
+      expect(await prisma.actionTaken.count({ where: { ticketId: isolated.id } })).toBe(1);
+      expect(await prisma.ticket.findUniqueOrThrow({ where: { id: isolated.id } })).toMatchObject({ version: beforeTicket.version });
+    } finally {
+      await prisma.user.deleteMany({ where: { id: { in: forcedUsers.map((user) => user.id) } } });
+    }
   });
 
   it("requires CSRF and rejects inactive assignees", async () => {

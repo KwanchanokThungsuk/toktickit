@@ -116,6 +116,27 @@ describe("ActionsTakenPanel", () => {
     expect((await screen.findAllByText("Action description 1")).length).toBe(2);
   });
 
+  it("prevents duplicate create submissions while the first save is pending", async () => {
+    vi.mocked(fetchActionsTaken).mockResolvedValue(response([]));
+    let resolveCreate!: (value: { action: ActionTaken; ticketVersion: number }) => void;
+    vi.mocked(createActionTaken).mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+    render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add Action" }));
+    fireEvent.change(screen.getByLabelText("Action Description *"), { target: { value: "Pending Action" } });
+    const save = screen.getByRole("button", { name: "Save Draft" });
+    fireEvent.click(save);
+    await waitFor(() => expect(createActionTaken).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Saving…" }));
+    fireEvent.submit(save.closest("form")!);
+    expect(createActionTaken).toHaveBeenCalledTimes(1);
+
+    resolveCreate({ action: action(9, "DRAFT", { actionDescription: "Pending Action" }), ticketVersion: 5 });
+    expect(await screen.findByText("Action saved.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Saving…" })).not.toBeInTheDocument();
+  });
+
   it("keeps inactive Tickets read-only and preserves a stale create draft for review", async () => {
     vi.mocked(fetchActionsTaken).mockResolvedValue(response([action(1, "DRAFT")]));
     const { rerender } = render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="CLOSED" />);
