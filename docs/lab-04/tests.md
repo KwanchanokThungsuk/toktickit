@@ -1,6 +1,6 @@
 # Lab 4 Test Evidence and Remaining Plan
 
-**Status:** Issue 28, Issue 29, and Issue 30 evidence is implemented and automated where stated below. Issue 31–33 dashboard, release, browser-responsive, and end-to-end work remains planned unless explicitly marked **MANUAL ONLY**. This document records current repository evidence; it does not claim complete final-release coverage for every Lab 4 criterion.
+**Status:** Issue 28, Issue 29, Issue 30, and Issue 31 dashboard backend/frontend component evidence is implemented and automated where stated below. Browser-responsive, end-to-end, performance, and release work remains planned unless explicitly marked **MANUAL ONLY**. This document records current repository evidence; it does not claim complete final-release coverage for every Lab 4 criterion.
 
 [specification.md](specification.md), [api-spec.md](api-spec.md), and [ui-spec.md](ui-spec.md) remain the approved contract.
 
@@ -8,14 +8,14 @@
 
 | Surface | Command / check | Verified result |
 |---|---|---|
-| Server | `npm test` | **18/18 test files, 103/103 tests passed** in **three consecutive full-suite runs** |
+| Server | `npm test` | **20/20 test files, 130/130 tests passed** in three consecutive full-suite runs |
 | Server | `npm run build` | Passed |
 | Server | `npx prisma validate` | Passed |
-| Client | `npm test` | **15/15 test files, 105/105 tests passed** |
+| Client | `npm test` | **16/16 test files, 129/129 tests passed** |
 | Client | `npm run build` | Passed |
 | Repository | `git diff --check` | Passed |
 
-The three server runs followed removal of an unsafe `prisma.$disconnect()` from `server/tests/lab-03/comments-notes.api.test.ts`. That suite had disconnected the shared application Prisma singleton while parallel API files could still use it, causing nondeterministic `socket hang up` and CSRF setup failures. The suite remains parallel; it is not globally serialized.
+The three server runs followed removal of an unsafe `prisma.$disconnect()` from `server/tests/lab-03/comments-notes.api.test.ts`. That suite had disconnected the shared application Prisma singleton while parallel API files could still use it, causing nondeterministic `socket hang up` and CSRF setup failures. API integration test files now run sequentially because they share one test database and dashboard global aggregate/parity assertions require a stable database snapshot. This is test-only configuration; application/runtime behavior is unchanged.
 
 ## 2. Test Database Isolation
 
@@ -76,11 +76,23 @@ The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail,
 | WORKFLOW-04 | API/client | AC-13 | Administrator operational owner/claim/priority/status behavior and Requester denial | Administrator receives approved Staff behavior; Requester writes remain forbidden | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `client/tests/lab-03/AdminTicketInspection.test.tsx` | IMPLEMENTED / AUTOMATED |
 | CONFLICT-03 | API/client | AC-15 | Versioned owner/claim/priority/status and advisory writes, stale races, conflict refresh | One concurrent mutation succeeds, stale write returns `409 STALE_UPDATE`, and UI refreshes authoritative state without false success | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-03/StaffTicketDetail.test.tsx` | IMPLEMENTED / AUTOMATED |
 
-## 7. Planned Future Coverage — Issues 31–33
+## 7. Issue 31 Dashboard Evidence and Future Coverage
+
+Issue 31 backend evidence IDs:
+
+| ID | Evidence | Scope |
+|---|---|---|
+| DASH-01 | `server/tests/lab-04/dashboards.api.test.ts`, `server/tests/lab-02/my-tickets.api.test.ts` | Authenticated requester ownership, active-status aggregation, waiting count, preview bounds, and recently-resolved pagination |
+| DASH-02 | `server/tests/lab-04/dashboards.api.test.ts` | Executable Staff personal Ticket ownership and Action performer evidence, Administrator personal identity, ACTIVE-only priority buckets, terminal exact-status buckets, and complete status/priority bucket keys |
+| DASH-03 | `server/tests/lab-04/dashboards.api.test.ts`, `server/tests/lab-02/my-tickets.api.test.ts` | Executable deterministic shared `asOf`/window evidence; requester `updatedAt`, formal `resolvedAt`, legacy `updatedAt` fallback, reopened exclusion, Staff `updatedAt`, Action `completedAt` boundaries; and effective-resolution ordering/pagination |
+| DASH-04 | `server/tests/lab-04/dashboards.api.test.ts` | Executable authenticated invalid-query matrix plus Requester, IT Staff, and Administrator dashboard-to-drill-down parity |
+| DASH-UI-01 | `client/tests/lab-04/Dashboards.test.tsx` | Requester and Staff dashboard rendering, all metric/status/priority buckets, preview content, Asia/Bangkok label, legacy-resolution label, and exact returned drill-down URLs |
+| DASH-UI-02 | `client/tests/lab-04/Dashboards.test.tsx`; `client/tests/lab-03/App.logout.test.tsx` | Loading busy state, real empty zero state, safe error/retry, 401 clearing protected data and returning to Login, 403 showing Access denied, `PASSWORD_CHANGE_REQUIRED` entering the forced-password flow, atomic successful refresh, stale network/5xx refresh preservation, and completed-Action pagination links |
+| DASH-UI-03 | `client/tests/lab-03/App.logout.test.tsx`; `client/tests/lab-02/MyTickets.test.tsx`; `client/tests/lab-03/StaffTicketQueue.test.tsx` | Role landing/navigation guards, Administrator deep-link preservation, non-Administrator User Management deep links showing Access denied, and returned dashboard query propagation to My Tickets and Ticket Queue, including visible reset controls |
 
 | Area | Planned evidence | Status |
 |---|---|---|
-| Requester and Staff/Admin dashboards, drill-downs, predicates, performance | Dashboard API/component/integration tests | PLANNED / FUTURE ISSUE 31 |
+| Requester and Staff/Admin dashboards, drill-downs, predicates, performance | Server dashboard tests plus `client/tests/lab-04/Dashboards.test.tsx` and list/queue routing tests | IMPLEMENTED / AUTOMATED for aggregates, status/priority buckets, ownership scoping, deterministic boundaries, drill-down parity, query guards, dashboard component states, and hash drill-down routing; performance coverage remains planned |
 | Playwright Action/workflow/dashboard flows | `e2e/lab-04/*.spec.ts` | PLANNED / FUTURE ISSUES 30–33 |
 | Browser responsive/accessibility suites | `responsive.spec.ts`, `accessibility.spec.ts` | PLANNED / FUTURE ISSUE 33 |
 | Release evidence, screenshots, final regression checklist | Manual release checklist | PLANNED / FUTURE ISSUE 33 |
@@ -99,7 +111,7 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | AC-06 | WORKFLOW-01 | IMPLEMENTED / AUTOMATED |
 | AC-07 | WORKFLOW-02 | IMPLEMENTED / AUTOMATED |
 | AC-08 | WORKFLOW-03 | IMPLEMENTED / AUTOMATED |
-| AC-09–AC-12 | Dashboards | PLANNED / FUTURE ISSUE 31 |
+| AC-09–AC-12 | DASH-01–DASH-04; DASH-UI-01–DASH-UI-03 | IMPLEMENTED / AUTOMATED for the covered backend route slice, deterministic boundary evidence, drill-down parity, dashboard component states, and role/hash routing; performance remains planned |
 | AC-13 | WORKFLOW-04, ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED for current role/auth cases; direct forced-password Action-route case is future work |
 | AC-14 | Inherited auth/session regressions | IMPLEMENTED / AUTOMATED regression coverage |
 | AC-15 | ACTION-07, CONFLICT-01, CONFLICT-03, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED for idempotency/stale handling; browser-level unknown-network recovery is planned |

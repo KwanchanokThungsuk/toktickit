@@ -4,6 +4,40 @@
   color: var(--zg-text);
 }
 
+.dashboard { max-width: 1280px; margin: 0 auto; }
+.dashboard__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
+.dashboard__header h1, .dashboard__header p { margin: 0; }
+.dashboard__header p { color: var(--zg-text-muted); margin-top: 0.3rem; }
+.dashboard__window { font-size: 0.875rem; }
+.dashboard__stale { color: var(--zg-warning); font-weight: 600; }
+.dashboard__metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.dashboard__metric, .dashboard__bucket-grid a { display: flex; flex-direction: column; border: 1px solid var(--zg-border); border-radius: 0.75rem; background: var(--zg-surface); padding: 1rem; color: var(--zg-text); text-decoration: none; box-shadow: 0 0.2rem 0.6rem rgb(22 51 39 / 0.04); }
+.dashboard__metric:hover, .dashboard__bucket-grid a:hover { border-color: var(--zg-primary); background: var(--zg-pale); }
+.dashboard__metric strong { color: var(--zg-primary); font-size: 2rem; line-height: 1.1; margin: 0.35rem 0; }
+.dashboard__metric small { color: var(--zg-text-muted); }
+.dashboard__buckets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.dashboard__buckets > div, .dashboard__preview { border: 1px solid var(--zg-border); border-radius: 0.75rem; background: var(--zg-surface); padding: 1rem; }
+.dashboard__buckets h2, .dashboard__preview h2 { font-size: 1rem; margin: 0; }
+.dashboard__bucket-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
+.dashboard__bucket-grid a { padding: 0.7rem; min-height: 4.25rem; justify-content: space-between; overflow-wrap: anywhere; }
+.dashboard__bucket-grid b { color: var(--zg-primary); font-size: 1.25rem; }
+.dashboard__previews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.dashboard__preview header { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.dashboard__preview header a, .dashboard__preview li a { color: var(--zg-primary); }
+.dashboard__preview ul { padding: 0; margin: 0; list-style: none; }
+.dashboard__preview li { border-top: 1px solid var(--zg-border); padding: 0.75rem 0; }
+.dashboard__preview li a { display: grid; gap: 0.2rem; text-decoration: none; overflow-wrap: anywhere; }
+.dashboard__preview li a span { color: var(--zg-text); }
+.dashboard__row-meta { display: flex; flex-wrap: wrap; gap: 0.4rem 0.6rem; color: var(--zg-text-muted); font-size: 0.8125rem; margin-top: 0.35rem; }
+.dashboard__estimate { color: var(--zg-warning); font-weight: 600; }
+.dashboard__empty { color: var(--zg-text-muted); margin: 1rem 0 0; }
+.dashboard__loading { min-height: 14rem; display: grid; place-items: center; }
+.dashboard__pagination { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+.dashboard__pagination [aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 1023px) { .dashboard__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard__previews { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .dashboard__header, .dashboard__buckets { grid-template-columns: 1fr; flex-direction: column; } .dashboard__header .btn, .dashboard__pagination .btn { width: 100%; min-height: 44px; } .dashboard__metrics, .dashboard__buckets { grid-template-columns: 1fr; } .dashboard__bucket-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard__metric { min-height: 7rem; } .dashboard__pagination { align-items: stretch; } }
+
 .actions-taken { border-color: color-mix(in srgb, var(--zg-border) 78%, var(--zg-primary)); }
 .actions-taken__heading { display: flex; justify-content: space-between; gap: 1.25rem; align-items: center; margin: -0.2rem 0 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--zg-border); }
 .actions-taken__heading h2 { margin: 0 0 0.3rem; letter-spacing: -0.015em; }

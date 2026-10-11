@@ -23,13 +23,17 @@ describe("Issue #22 comments and internal notes", () => {
   });
   afterAll(async () => { if (requester && staff && admin) { await prisma.publicComment.deleteMany({ where: { ticketId } }).catch(() => undefined); await prisma.internalNote.deleteMany({ where: { ticketId } }).catch(() => undefined); await prisma.ticket.delete({ where: { id: ticketId } }).catch(() => undefined); await prisma.category.delete({ where: { id: categoryId } }).catch(() => undefined); await prisma.relatedSystem.delete({ where: { id: systemId } }).catch(() => undefined); await prisma.user.deleteMany({ where: { id: { in: [requester.id, staff.id, admin.id] } } }).catch(() => undefined); } });
 
-  it("allows owned Requester and IT Staff comments and preserves backend attribution", async () => {
+  it("allows owned Requester, IT Staff, and Administrator comments and preserves backend attribution", async () => {
     const requesterSession = await authenticatedAgent(requester.email, password);
     const created = await requesterSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", requesterSession.csrfToken).send({ body: "  A public update  ", authorId: admin.id, createdAt: "2000-01-01T00:00:00.000Z" });
     expect(created.status).toBe(201); expect(created.body.body).toBe("A public update"); expect(created.body.author.id).toBe(requester.id); expect(created.body.createdAt).not.toBe("2000-01-01T00:00:00.000Z");
     const staffSession = await authenticatedAgent(staff.email, password);
     const staffComment = await staffSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", staffSession.csrfToken).send({ body: "Staff update" });
     expect(staffComment.status).toBe(201);
+    const adminSession = await authenticatedAgent(admin.email, password);
+    const adminComment = await adminSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", adminSession.csrfToken).send({ body: "Administrator update" });
+    expect(adminComment.status).toBe(201);
+    expect(adminComment.body.author).toMatchObject({ id: admin.id, role: "ADMINISTRATOR" });
     expect((await requesterSession.agent.get(`/api/tickets/${ticketId}/comments`)).status).toBe(200);
   });
 
@@ -54,7 +58,9 @@ describe("Issue #22 comments and internal notes", () => {
     expect(created.status).toBe(201); expect((await staffSession.agent.get(`/api/staff/tickets/${ticketId}/internal-notes`)).body[0].body).toBe("Staff-only note");
     const adminSession = await authenticatedAgent(admin.email, password);
     expect((await adminSession.agent.get(`/api/staff/tickets/${ticketId}/internal-notes`)).status).toBe(200);
-    expect((await adminSession.agent.post(`/api/staff/tickets/${ticketId}/internal-notes`).set("X-CSRF-Token", adminSession.csrfToken).send({ body: "no" })).status).toBe(403);
+    const adminNote = await adminSession.agent.post(`/api/staff/tickets/${ticketId}/internal-notes`).set("X-CSRF-Token", adminSession.csrfToken).send({ body: "Administrator note" });
+    expect(adminNote.status).toBe(201);
+    expect(adminNote.body.author).toMatchObject({ id: admin.id, role: "ADMINISTRATOR" });
   });
 
   it("rejects blank and over-limit communication bodies without creating rows", async () => {
@@ -71,7 +77,7 @@ describe("Issue #22 comments and internal notes", () => {
     const otherSession = await authenticatedAgent(other.email, password);
     expect((await otherSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", otherSession.csrfToken).send({ body: "foreign" })).status).toBe(404);
     const adminSession = await authenticatedAgent(admin.email, password);
-    expect((await adminSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", adminSession.csrfToken).send({ body: "forbidden" })).status).toBe(403);
+    expect((await adminSession.agent.post(`/api/tickets/${ticketId}/comments`).set("X-CSRF-Token", adminSession.csrfToken).send({ body: "Administrator update" })).status).toBe(201);
     await prisma.user.delete({ where: { id: other.id } });
   });
 
@@ -83,8 +89,9 @@ describe("Issue #22 comments and internal notes", () => {
     expect(rejected.status).toBe(422);
   });
 
-  it("rejects unauthenticated comment access", async () => {
+  it("rejects unauthenticated communication access", async () => {
     expect((await request(app).get(`/api/tickets/${ticketId}/comments`)).status).toBe(401);
     expect((await request(app).post(`/api/tickets/${ticketId}/comments`).send({ body: "anonymous" })).status).toBe(401);
+    expect((await request(app).post(`/api/staff/tickets/${ticketId}/internal-notes`).send({ body: "anonymous" })).status).toBe(401);
   });
 });

@@ -120,6 +120,110 @@ beforeEach(() => {
 });
 
 describe("MyTickets", () => {
+  it("applies the exact dashboard drill-down query to the existing Ticket list", async () => {
+    render(<MyTickets routeQuery={{ statusGroup: "active", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc" }} />);
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ statusGroup: "active", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc", page: 1 })));
+    expect(screen.getByText("Dashboard filter is active.")).toBeInTheDocument();
+  });
+
+  it("keeps the backend-owned recently-resolved order and clears back to ordinary defaults", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{ recentlyResolvedFrom: "2026-10-03T12:00:00.000Z", recentlyResolvedTo: "2026-10-10T12:00:00.000Z" }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+      page: 1,
+    })));
+    const recentlyResolvedRequest = mockedFetchTickets.mock.calls.at(-1)?.[0];
+    expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
+    expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+    expect(await screen.findByText("TKT-2026-000001")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: /clear filters/i }).find((button) => button.textContent === "Clear filters")!);
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      page: 1,
+    })));
+  });
+
+  it("replaces an active status group with an exact status without restoring it", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{ statusGroup: "active", requestedPriority: "HIGH", search: "printer" }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      statusGroup: "active",
+      requestedPriority: "HIGH",
+      search: "printer",
+    })));
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "WAITING_FOR_REQUESTER");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: "WAITING_FOR_REQUESTER",
+      statusGroup: undefined,
+      requestedPriority: "HIGH",
+      search: "printer",
+      page: 1,
+    })));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: undefined,
+      statusGroup: undefined,
+      requestedPriority: "HIGH",
+      search: "printer",
+      page: 1,
+    })));
+  });
+
+  it("replaces a recently-resolved dashboard window with an exact status while preserving compatible filters", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+      search: "printer",
+      categoryId: "1",
+      relatedSystemId: "2",
+      requestedPriority: "HIGH",
+    }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+    })));
+    const recentlyResolvedRequest = mockedFetchTickets.mock.calls.at(-1)?.[0];
+    expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
+    expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /page size/i }), "20");
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "WAITING_FOR_REQUESTER");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: "WAITING_FOR_REQUESTER",
+      statusGroup: undefined,
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      search: "printer",
+      categoryId: "1",
+      relatedSystemId: "2",
+      requestedPriority: "HIGH",
+      page: 1,
+      pageSize: 20,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    })));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: undefined,
+      statusGroup: undefined,
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      page: 1,
+      pageSize: 20,
+    })));
+  });
   describe("UI-13 / AC-22 - ticket list and pagination", () => {
     it("renders the My Tickets heading and subtitle", async () => {
       renderMyTickets();
@@ -550,7 +654,7 @@ describe("MyTickets", () => {
   });
 
   describe("UI-23 / AC-35 - Current Status filter", () => {
-    it("provides only All Statuses and New options", () => {
+    it("provides all documented Ticket status options", () => {
       renderMyTickets();
 
       const statusSelect =
@@ -570,11 +674,8 @@ describe("MyTickets", () => {
         }),
       ).toBeInTheDocument();
 
-      expect(
-        within(statusSelect).queryByRole("option", {
-          name: /closed/i,
-        }),
-      ).not.toBeInTheDocument();
+      expect(within(statusSelect).getByRole("option", { name: "Closed" })).toBeInTheDocument();
+      expect(within(statusSelect).getAllByRole("option")).toHaveLength(9);
     });
 
     it("requests NEW tickets and resets page to 1", async () => {

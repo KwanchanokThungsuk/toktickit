@@ -12,6 +12,7 @@
 | 5 | Inspect and plan cleanup of leaked development fixtures. | I am explicitly approved the destructive cleanup after reviewing the plan. | Only approved development test fixtures were removed; no test database, code, schema, or seed behavior changed. |
 | 6 | Extend demonstration seed coverage. | I am reviewed the seed contract and integration result. | The seed remains create-if-missing and repeatable while representing all eight Ticket statuses and Action scenarios. |
 | 7 | Audit Issue 29 and investigate full-suite nondeterminism. | I am reviewed the test-only change and repeated verification. | Server passed 18/18 files and 103/103 tests in three consecutive runs; client evidence remained 15/15 files and 105/105 tests. |
+| 8 | Review the Issue 31 dashboard specification and plan the Requester and Staff/Administrator dashboard implementation, including backend metrics, seven-day time-window rules, drill-down filters, role permissions, and automated tests. | I used the result to break the dashboard work into backend and frontend phases, then verified each metric, date-boundary rule, role-specific behavior, and drill-down query against the Lab 4 specification before implementation. |
 
 
 
