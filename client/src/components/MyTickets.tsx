@@ -189,7 +189,15 @@ export default function MyTickets({ routeQuery = {} }: { routeQuery?: Record<str
 
   function updateFilter(name: keyof Filters, value: string) {
     setFilters((current) => name === "currentStatus"
-      ? { ...current, currentStatus: value as Filters["currentStatus"], statusGroup: value ? "" : current.statusGroup }
+      ? value
+        ? {
+            ...current,
+            currentStatus: value as Filters["currentStatus"],
+            statusGroup: "",
+            recentlyResolvedFrom: "",
+            recentlyResolvedTo: "",
+          }
+        : { ...current, currentStatus: "" }
       : { ...current, [name]: value });
     setPage(1);
   }

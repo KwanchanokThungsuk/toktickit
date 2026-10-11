@@ -177,6 +177,53 @@ describe("MyTickets", () => {
       page: 1,
     })));
   });
+
+  it("replaces a recently-resolved dashboard window with an exact status while preserving compatible filters", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+      search: "printer",
+      categoryId: "1",
+      relatedSystemId: "2",
+      requestedPriority: "HIGH",
+    }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+    })));
+    const recentlyResolvedRequest = mockedFetchTickets.mock.calls.at(-1)?.[0];
+    expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
+    expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /page size/i }), "20");
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "WAITING_FOR_REQUESTER");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: "WAITING_FOR_REQUESTER",
+      statusGroup: undefined,
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      search: "printer",
+      categoryId: "1",
+      relatedSystemId: "2",
+      requestedPriority: "HIGH",
+      page: 1,
+      pageSize: 20,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    })));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: undefined,
+      statusGroup: undefined,
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      page: 1,
+      pageSize: 20,
+    })));
+  });
   describe("UI-13 / AC-22 - ticket list and pagination", () => {
     it("renders the My Tickets heading and subtitle", async () => {
       renderMyTickets();

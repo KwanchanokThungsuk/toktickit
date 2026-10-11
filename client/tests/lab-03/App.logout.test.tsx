@@ -48,6 +48,14 @@ describe("authenticated app logout", () => {
     const recentlyResolvedRequest = vi.mocked(fetchTickets).mock.calls.at(-1)?.[0];
     expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
     expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+    fireEvent.change(screen.getByRole("combobox", { name: /current status/i }), { target: { value: "WAITING_FOR_REQUESTER" } });
+    await waitFor(() => expect(fetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: "WAITING_FOR_REQUESTER",
+      statusGroup: undefined,
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      page: 1,
+    })));
   });
 
   it("clears the authenticated state and returns to Login", async () => {
