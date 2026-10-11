@@ -125,6 +125,58 @@ describe("MyTickets", () => {
     await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ statusGroup: "active", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc", page: 1 })));
     expect(screen.getByText("Dashboard filter is active.")).toBeInTheDocument();
   });
+
+  it("keeps the backend-owned recently-resolved order and clears back to ordinary defaults", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{ recentlyResolvedFrom: "2026-10-03T12:00:00.000Z", recentlyResolvedTo: "2026-10-10T12:00:00.000Z" }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: "2026-10-03T12:00:00.000Z",
+      recentlyResolvedTo: "2026-10-10T12:00:00.000Z",
+      page: 1,
+    })));
+    const recentlyResolvedRequest = mockedFetchTickets.mock.calls.at(-1)?.[0];
+    expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
+    expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+    expect(await screen.findByText("TKT-2026-000001")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: /clear filters/i }).find((button) => button.textContent === "Clear filters")!);
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      recentlyResolvedFrom: undefined,
+      recentlyResolvedTo: undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      page: 1,
+    })));
+  });
+
+  it("replaces an active status group with an exact status without restoring it", async () => {
+    const user = userEvent.setup();
+    render(<MyTickets routeQuery={{ statusGroup: "active", requestedPriority: "HIGH", search: "printer" }} />);
+
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      statusGroup: "active",
+      requestedPriority: "HIGH",
+      search: "printer",
+    })));
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "WAITING_FOR_REQUESTER");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: "WAITING_FOR_REQUESTER",
+      statusGroup: undefined,
+      requestedPriority: "HIGH",
+      search: "printer",
+      page: 1,
+    })));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /current status/i }), "");
+    await waitFor(() => expect(mockedFetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStatus: undefined,
+      statusGroup: undefined,
+      requestedPriority: "HIGH",
+      search: "printer",
+      page: 1,
+    })));
+  });
   describe("UI-13 / AC-22 - ticket list and pagination", () => {
     it("renders the My Tickets heading and subtitle", async () => {
       renderMyTickets();

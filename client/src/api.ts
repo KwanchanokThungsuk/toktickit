@@ -155,8 +155,8 @@ export interface FetchTicketsOptions {
   updatedTo?: string;
   recentlyResolvedFrom?: string;
   recentlyResolvedTo?: string;
-  sortBy: TicketSortBy;
-  sortOrder: TicketSortOrder;
+  sortBy?: TicketSortBy;
+  sortOrder?: TicketSortOrder;
   page: number;
   pageSize: number;
 }

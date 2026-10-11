@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App";
-import { ApiError, currentUser, fetchAdminTicketInspection, fetchRequesterDashboard, fetchStaffDashboard, fetchStaffTicketDetail, fetchUsers, logout } from "../../src/api";
+import { addInternalNote, addTicketComment, ApiError, currentUser, fetchAdminTicketInspection, fetchCategories, fetchRelatedSystems, fetchRequesterDashboard, fetchStaffDashboard, fetchStaffTicketDetail, fetchTickets, fetchUsers, logout } from "../../src/api";
 
 vi.mock("../../src/api", async () => {
   const actual = await vi.importActual<typeof import("../../src/api")>("../../src/api");
-  return { ...actual, currentUser: vi.fn(), fetchAdminTicketInspection: vi.fn(), fetchRequesterDashboard: vi.fn(), fetchStaffDashboard: vi.fn(), fetchStaffTicketDetail: vi.fn(), fetchUsers: vi.fn(), logout: vi.fn() };
+  return { ...actual, addInternalNote: vi.fn(), addTicketComment: vi.fn(), currentUser: vi.fn(), fetchAdminTicketInspection: vi.fn(), fetchCategories: vi.fn(), fetchRelatedSystems: vi.fn(), fetchRequesterDashboard: vi.fn(), fetchStaffDashboard: vi.fn(), fetchStaffTicketDetail: vi.fn(), fetchTickets: vi.fn(), fetchUsers: vi.fn(), logout: vi.fn() };
 });
 
 describe("authenticated app logout", () => {
@@ -15,11 +15,40 @@ describe("authenticated app logout", () => {
     vi.mocked(fetchRequesterDashboard).mockImplementation(() => new Promise(() => undefined));
     vi.mocked(fetchStaffDashboard).mockImplementation(() => new Promise(() => undefined));
     vi.mocked(fetchAdminTicketInspection).mockImplementation(() => new Promise(() => undefined));
+    vi.mocked(fetchCategories).mockResolvedValue([]);
+    vi.mocked(fetchRelatedSystems).mockResolvedValue([]);
+    vi.mocked(fetchTickets).mockResolvedValue({ data: [], meta: { page: 1, pageSize: 10, totalItems: 0, totalPages: 0 } });
     vi.mocked(fetchStaffTicketDetail).mockImplementation(() => new Promise(() => undefined));
     vi.mocked(fetchUsers).mockImplementation(() => new Promise(() => undefined));
+    vi.mocked(addTicketComment).mockResolvedValue({ id: 301, ticketId: 21, body: "Administrator comment", createdAt: "2026-10-10T12:00:00.000Z", author: { id: 3, name: "Admin", role: "ADMINISTRATOR" } });
+    vi.mocked(addInternalNote).mockResolvedValue({ id: 302, ticketId: 21, body: "Administrator note", createdAt: "2026-10-10T12:00:00.000Z", author: { id: 3, name: "Admin", role: "ADMINISTRATOR" } });
   });
 
   const requesterDashboard = { asOf: "2026-10-10T12:00:00.000Z", window: { start: "2026-10-03T12:00:00.000Z", end: "2026-10-10T12:00:00.000Z" }, displayTimeZone: "Asia/Bangkok", metrics: { openTickets: { count: 1, drillDown: { destination: "/tickets", query: {} } }, waitingForRequester: { count: 0, drillDown: { destination: "/tickets", query: {} } }, recentlyUpdated: { count: 0, drillDown: { destination: "/tickets", query: {} } }, recentlyResolved: { count: 0, drillDown: { destination: "/tickets", query: {} } } }, attentionRequired: [], recentTickets: [], resolvedTickets: [] } as any;
+  const operationalDetail = { id: 21, ticketNumber: "TKT-21", summary: "Urgent dashboard Ticket", description: "A complete operational Ticket description.", requestedPriority: "HIGH", itPriority: "HIGH", currentStatus: "OPEN", version: 1, createdAt: "2026-10-10T10:00:00.000Z", updatedAt: "2026-10-10T11:00:00.000Z", resolvedAt: null, resolutionReady: false, requester: { name: "Requester", email: "requester@example.com" }, category: { name: "Hardware" }, relatedSystem: { name: "Email" }, assignedTo: null, eligibleOwners: [], attachments: [], publicComments: [], internalNotes: [] } as any;
+
+  it("follows Requester dashboard filters without sending conflicting list parameters", async () => {
+    vi.mocked(currentUser).mockResolvedValue({ id: 1, name: "Alice", email: "alice@example.com", role: "REQUESTER", mustChangePassword: false });
+    vi.mocked(fetchRequesterDashboard).mockResolvedValue({ ...requesterDashboard, metrics: { ...requesterDashboard.metrics, openTickets: { count: 1, drillDown: { destination: "/tickets", query: { statusGroup: "active" } } }, recentlyResolved: { count: 1, drillDown: { destination: "/tickets", query: { recentlyResolvedFrom: requesterDashboard.window.start, recentlyResolvedTo: requesterDashboard.window.end } } } } });
+    const { unmount } = render(<App />);
+    await screen.findByText("Open Tickets");
+    fireEvent.click(screen.getByRole("link", { name: /open tickets/i }));
+    await waitFor(() => expect(window.location.hash).toBe("#/tickets?statusGroup=active"));
+    await waitFor(() => expect(fetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ statusGroup: "active", page: 1 })));
+    fireEvent.change(screen.getByRole("combobox", { name: /current status/i }), { target: { value: "WAITING_FOR_REQUESTER" } });
+    await waitFor(() => expect(fetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ currentStatus: "WAITING_FOR_REQUESTER", statusGroup: undefined, page: 1 })));
+    unmount();
+
+    window.location.hash = "#/dashboard";
+    render(<App />);
+    await screen.findAllByText("Recently Resolved");
+    fireEvent.click(screen.getAllByRole("link", { name: /recently resolved/i })[0]);
+    await waitFor(() => expect(window.location.hash).toContain("recentlyResolvedFrom="));
+    await waitFor(() => expect(fetchTickets).toHaveBeenLastCalledWith(expect.objectContaining({ recentlyResolvedFrom: requesterDashboard.window.start, recentlyResolvedTo: requesterDashboard.window.end, page: 1 })));
+    const recentlyResolvedRequest = vi.mocked(fetchTickets).mock.calls.at(-1)?.[0];
+    expect(recentlyResolvedRequest?.sortBy).toBeUndefined();
+    expect(recentlyResolvedRequest?.sortOrder).toBeUndefined();
+  });
 
   it("clears the authenticated state and returns to Login", async () => {
     vi.mocked(currentUser).mockResolvedValue({ id: 1, name: "Alice", email: "alice@example.com", role: "REQUESTER", mustChangePassword: false });
@@ -130,6 +159,32 @@ describe("authenticated app logout", () => {
     vi.mocked(currentUser).mockResolvedValue({ id: 3, name: "Admin", email: "admin@example.com", role: "ADMINISTRATOR", mustChangePassword: false });
     render(<App />);
     await waitFor(() => expect(window.location.hash).toBe("#/staff/dashboard"));
+  });
+
+  it("allows an Administrator dashboard Ticket row to load operational detail and add communications while denying the Requester route", async () => {
+    window.location.hash = "#/staff/dashboard";
+    vi.mocked(currentUser).mockResolvedValue({ id: 3, name: "Admin", email: "admin@example.com", role: "ADMINISTRATOR", mustChangePassword: false });
+    vi.mocked(fetchStaffDashboard).mockResolvedValue({ asOf: requesterDashboard.asOf, window: requesterDashboard.window, displayTimeZone: "Asia/Bangkok", metrics: { unassignedTickets: { count: 0, drillDown: { destination: "/staff/tickets", query: {} } }, myTickets: { count: 0, drillDown: { destination: "/staff/tickets", query: {} } }, recentlyUpdated: { count: 1, drillDown: { destination: "/staff/tickets", query: {} } }, myActions: { count: 0, drillDown: { destination: "/staff/dashboard/actions", query: {} } }, byStatus: {}, byItPriority: {} }, recentTickets: [{ id: 21, ticketNumber: "TKT-21", summary: "Urgent dashboard Ticket", currentStatus: "OPEN", itPriority: "HIGH", updatedAt: operationalDetail.updatedAt }], urgentTickets: [], myRecentActions: [], urgentDrillDown: { destination: "/staff/tickets", query: {} } } as any);
+    vi.mocked(fetchStaffTicketDetail).mockResolvedValue(operationalDetail);
+    const { unmount } = render(<App />);
+    await screen.findByText("Dashboard");
+    fireEvent.click(screen.getByRole("link", { name: /TKT-21/ }));
+    await waitFor(() => expect(window.location.hash).toBe("#/staff/tickets/21"));
+    expect(await screen.findByText("TKT-21")).toBeInTheDocument();
+    expect(fetchStaffTicketDetail).toHaveBeenCalledWith(21);
+    expect(window.location.hash).toBe("#/staff/tickets/21");
+    fireEvent.change(screen.getByLabelText("Add a comment"), { target: { value: "Administrator comment" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
+    await waitFor(() => expect(addTicketComment).toHaveBeenCalledWith(21, "Administrator comment"));
+    fireEvent.change(screen.getByLabelText("Add an internal note"), { target: { value: "Administrator note" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() => expect(addInternalNote).toHaveBeenCalledWith(21, "Administrator note"));
+    unmount();
+
+    window.location.hash = "#/staff/tickets/21";
+    vi.mocked(currentUser).mockResolvedValue({ id: 1, name: "Alice", email: "alice@example.com", role: "REQUESTER", mustChangePassword: false });
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
   });
 
   it("allows only Administrators to use User Management and denies direct non-Admin links", async () => {

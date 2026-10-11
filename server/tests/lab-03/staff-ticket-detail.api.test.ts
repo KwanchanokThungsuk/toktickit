@@ -42,13 +42,17 @@ describe("Issue #20 staff ticket detail and ownership", () => {
   });
   afterAll(async () => { if (!requester) return; await prisma.ticket.deleteMany({ where: { id: ticketId } }).catch(() => undefined); await prisma.category.delete({ where: { id: categoryId } }).catch(() => undefined); await prisma.relatedSystem.delete({ where: { id: systemId } }).catch(() => undefined); await prisma.user.deleteMany({ where: { id: { in: [requester.id, otherRequester.id, staff.id, staffB.id, admin.id, inactive.id] } } }).catch(() => undefined); });
 
-  it("requires IT Staff for detail and supports claim and real reassignment", async () => {
+  it("allows operational roles to read detail and supports claim and real reassignment", async () => {
     expect((await request(app).get(`/api/staff/tickets/${ticketId}`)).status).toBe(401);
     const { agent, csrfToken } = await authenticatedAgent(staff.email, password);
     const detail = await agent.get(`/api/staff/tickets/${ticketId}`);
     expect(detail.status).toBe(200);
     expect(detail.body.id).toBe(ticketId);
     expect(detail.body.assignedTo).toBeNull();
+    const adminAgent = await authenticatedAgent(admin.email, password);
+    const adminDetail = await adminAgent.agent.get(`/api/staff/tickets/${ticketId}`);
+    expect(adminDetail.status).toBe(200);
+    expect(adminDetail.body.id).toBe(ticketId);
     const claimed = await claim(agent, csrfToken);
     expect(claimed.status).toBe(200);
     expect(claimed.body.id).toBe(staff.id);
@@ -78,7 +82,7 @@ describe("Issue #20 staff ticket detail and ownership", () => {
       expect((await prisma.ticket.findUnique({ where: { id: ticketId }, select: { assignedToUserId: true } }))?.assignedToUserId).toBe(staffB.id);
     }
     const adminAgent = await authenticatedAgent(admin.email, password);
-    expect((await adminAgent.agent.get(`/api/staff/tickets/${ticketId}`)).status).toBe(403);
+    expect((await adminAgent.agent.get(`/api/staff/tickets/${ticketId}`)).status).toBe(200);
     expect((await updateOwner(adminAgent.agent, adminAgent.csrfToken, staff.id)).status).toBe(200);
   });
 

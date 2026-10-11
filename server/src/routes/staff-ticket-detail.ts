@@ -2,11 +2,11 @@ import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
 import type { TicketStatus } from "@prisma/client";
 import { internalServerError } from "../internal-error.js";
-import { requireStaff, requireRequester, authenticatedUserId, requireCsrf, requirePasswordChanged } from "../auth.js";
+import { requireStaffOrAdministrator, requireRequester, authenticatedUserId, requireCsrf, requirePasswordChanged } from "../auth.js";
 const router = Router();
 const owner = { select: { id: true, name: true, email: true, role: true } } as const;
 router.get("/api/staff/tickets/:id", async (req: Request, res: Response) => {
-  if (!requireStaff(req, res)) return;
+  if (!requireStaffOrAdministrator(req, res)) return;
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found" } });
   try {

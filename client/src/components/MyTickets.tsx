@@ -158,6 +158,7 @@ export default function MyTickets({ routeQuery = {} }: { routeQuery?: Record<str
     let active = true;
     setIsLoading(true);
     setError("");
+    const recentlyResolvedMode = Boolean(filters.recentlyResolvedFrom || filters.recentlyResolvedTo);
     fetchTickets({
       search,
       categoryId: filters.categoryId,
@@ -169,8 +170,7 @@ export default function MyTickets({ routeQuery = {} }: { routeQuery?: Record<str
       updatedTo: filters.updatedTo || undefined,
       recentlyResolvedFrom: filters.recentlyResolvedFrom || undefined,
       recentlyResolvedTo: filters.recentlyResolvedTo || undefined,
-      sortBy,
-      sortOrder,
+      ...(recentlyResolvedMode ? {} : { sortBy, sortOrder }),
       page,
       pageSize,
     })
@@ -188,13 +188,17 @@ export default function MyTickets({ routeQuery = {} }: { routeQuery?: Record<str
   }, [search, filters, sortBy, sortOrder, page, pageSize, retryCount]);
 
   function updateFilter(name: keyof Filters, value: string) {
-    setFilters((current) => ({ ...current, [name]: value }));
+    setFilters((current) => name === "currentStatus"
+      ? { ...current, currentStatus: value as Filters["currentStatus"], statusGroup: value ? "" : current.statusGroup }
+      : { ...current, [name]: value });
     setPage(1);
   }
 
   function clearFilters() {
     setSearch("");
     setFilters(initialFilters);
+    setSortBy("createdAt");
+    setSortOrder("desc");
     setPage(1);
   }
 
