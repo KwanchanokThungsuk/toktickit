@@ -11,8 +11,8 @@
 | [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |  Comment and Approved |
 | [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow | Comment and Approved |
 | [#75](https://github.com/KwanchanokThungsuk/toktickit/pull/75) | feature/31-it-staff-requester-dashboards | Comment and Approved |
-| [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76) | feature/32-lab4-tests-regression |  |
-| [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) |  |  |
+| [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76) | feature/32-lab4-tests-regression | Approved |
+| [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) | feature/33-final-regression-accessibility-release |  |
 
 **feature/27-lab3-spec-contract**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
@@ -104,7 +104,7 @@ PR: [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76)
 - Reviewer: 
 - How I responded: 
 
-**feature/33**
+**feature/33-final-regression-accessibility-release**
 PR: [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77)
 - Reviewer: 
 - How I responded: 

@@ -7,12 +7,9 @@ const requester = {
 };
 
 async function mockCreateTicketApi(page: Page) {
-  await page.addInitScript((selectedRequester) => {
-    localStorage.setItem(
-      "toktickit-selected-requester",
-      JSON.stringify(selectedRequester),
-    );
-  }, requester);
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({ json: { user: { ...requester, role: "REQUESTER", mustChangePassword: false } } }),
+  );
 
   await page.route("**/api/categories", (route) =>
     route.fulfill({ json: [{ id: 1, name: "Hardware" }] }),

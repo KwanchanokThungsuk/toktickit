@@ -29,7 +29,23 @@ describe("StaffTicketDetail", () => {
   });
 
   it("updates displayed priority and status after successful mutations", async () => { render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "LOW" } }); fireEvent.click(screen.getByRole("button", { name: "Save priority" })); await waitFor(() => expect(screen.getByLabelText("IT Priority")).toHaveValue("LOW")); fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: "OPEN" } }); fireEvent.click(screen.getByRole("button", { name: "Save status" })); await waitFor(() => expect(screen.getByLabelText("Ticket status")).toHaveValue("OPEN")); });
-  it("refreshes the authoritative Ticket status requested by Actions Taken", async () => { vi.mocked(fetchStaffTicketDetail).mockResolvedValueOnce(detail).mockResolvedValueOnce({ ...detail, currentStatus: "CLOSED" }); render(<StaffTicketDetail ticketId={7} />); await screen.findByText("Actions Ticket status: NEW"); fireEvent.click(screen.getByRole("button", { name: "Refresh Ticket after Action conflict" })); await waitFor(() => expect(fetchStaffTicketDetail).toHaveBeenCalledTimes(2)); expect(screen.getByText("Actions Ticket status: CLOSED")).toBeInTheDocument(); });
+  it("refreshes the authoritative Ticket snapshot after an Action mutation and blocks stale workflow writes", async () => {
+    let resolveRefresh!: (value: typeof detail) => void;
+    vi.mocked(fetchStaffTicketDetail).mockResolvedValueOnce(detail).mockReturnValueOnce(new Promise((resolve) => { resolveRefresh = resolve; }));
+    render(<StaffTicketDetail ticketId={7} />);
+    await screen.findByText("Actions Ticket status: NEW");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Ticket after Action conflict" }));
+    await waitFor(() => expect(fetchStaffTicketDetail).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Ticket status")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save status" }));
+    expect(updateStaffTicketStatus).not.toHaveBeenCalled();
+
+    resolveRefresh({ ...detail, version: 2 });
+    await waitFor(() => expect(screen.getByLabelText("Ticket status")).not.toBeDisabled());
+    fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: "OPEN" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save status" }));
+    await waitFor(() => expect(updateStaffTicketStatus).toHaveBeenCalledWith(7, "OPEN", 2));
+  });
   it("surfaces mutation errors", async () => { vi.mocked(updateStaffTicketPriority).mockRejectedValueOnce(new Error("Priority update failed")); render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "LOW" } }); fireEvent.click(screen.getByRole("button", { name: "Save priority" })); expect(await screen.findByText("Priority update failed")).toBeInTheDocument(); });
   it("refreshes authoritative state while retaining a local selection after a stale workflow write", async () => { vi.mocked(fetchStaffTicketDetail).mockResolvedValueOnce(detail).mockResolvedValueOnce({ ...detail, currentStatus: "OPEN", version: 2 }); vi.mocked(updateStaffTicketStatus).mockRejectedValueOnce(new ApiError(409, "STALE_UPDATE", "The Ticket changed.")); render(<StaffTicketDetail ticketId={7} />); await screen.findByText("TKT-7"); fireEvent.change(screen.getByLabelText("Ticket status"), { target: { value: "CANCELLED" } }); vi.spyOn(window, "confirm").mockReturnValue(true); fireEvent.click(screen.getByRole("button", { name: "Save status" })); expect(await screen.findByText(/This Ticket changed/)).toBeInTheDocument(); await waitFor(() => expect(fetchStaffTicketDetail).toHaveBeenCalledTimes(2)); expect(screen.getByLabelText("Ticket status")).toHaveValue("CANCELLED"); vi.restoreAllMocks(); });
 });

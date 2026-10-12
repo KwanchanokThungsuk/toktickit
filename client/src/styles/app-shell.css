@@ -1093,3 +1093,13 @@
     min-height: 44px;
   }
 }
+
+/* Shared keyboard-focus treatment for application controls that do not supply a more specific focus style. */
+.app-shell a:focus-visible,
+.app-shell button:focus-visible,
+.app-shell input:focus-visible,
+.app-shell select:focus-visible,
+.app-shell textarea:focus-visible {
+  outline: 3px solid var(--zg-focus-ring);
+  outline-offset: 2px;
+}

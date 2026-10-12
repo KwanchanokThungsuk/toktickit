@@ -1,6 +1,6 @@
 # Lab 4 Test Evidence and Remaining Plan
 
-**Status:** Issue 28, Issue 29, Issue 30, and Issue 31 dashboard backend/frontend component evidence is implemented and automated where stated below. Browser-responsive, end-to-end, performance, and release work remains planned unless explicitly marked **MANUAL ONLY**. This document records current repository evidence; it does not claim complete final-release coverage for every Lab 4 criterion.
+**Status:** Issues 28–32 are implemented and covered where stated below. Issue 33 adds verified Lab 4 browser flows, responsive evidence, accessibility evidence, screenshot evidence, and deterministic performance smoke evidence. Optional additional hardening checks are identified separately and are not required for current Lab 4 acceptance completion. Final peer approval is tracked independently.
 
 [specification.md](specification.md), [api-spec.md](api-spec.md), and [ui-spec.md](ui-spec.md) remain the approved contract.
 
@@ -8,14 +8,15 @@
 
 | Surface | Command / check | Verified result |
 |---|---|---|
-| Server | `npm test` | **20/20 test files, 133/133 tests passed** |
+| Server | `npm test` | **21/21 test files, 136/136 tests passed** |
 | Server | `npm run build` | Passed |
 | Server | `npx prisma validate` | Passed |
-| Client | `npm test` | **16/16 test files, 135/135 tests passed** |
+| Client | `npm test` | **16/16 test files, 136/136 tests passed** |
 | Client | `npm run build` | Passed |
-| Repository | `git diff --check` scoped to Issue 32 paths | Passed |
+| Browser | `npx playwright test` | **64/64 passed** |
+| Repository | `git diff --check` | Passed |
 
-The three server runs followed removal of an unsafe `prisma.$disconnect()` from `server/tests/lab-03/comments-notes.api.test.ts`. That suite had disconnected the shared application Prisma singleton while parallel API files could still use it, causing nondeterministic `socket hang up` and CSRF setup failures. API integration test files now run sequentially because they share one test database and dashboard global aggregate/parity assertions require a stable database snapshot. This is test-only configuration; application/runtime behavior is unchanged.
+The three server runs followed removal of an unsafe `prisma.$disconnect()` from `server/tests/lab-03/comments-notes.api.test.ts`. That suite had disconnected the shared application Prisma singleton while API files could still use it, causing nondeterministic `socket hang up` and CSRF setup failures. API integration test files now run in one sequential test process because they share one test database and dashboard global aggregate/parity assertions require a stable database snapshot. This is test-only configuration; application/runtime behavior is unchanged.
 
 ## 2. Test Database Isolation
 
@@ -56,15 +57,16 @@ There is no separate `concurrency.integration.test.ts`; the Actions Taken API te
 
 The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail, and Administrator Ticket Inspection. Component tests exercise role modes; server tests prove corresponding authorization.
 
-## 5. Manual-Only Issue 29 Checks
+## 5. Manual and Browser Evidence
 
 | Area | Current evidence | Status |
 |---|---|---|
-| Responsive table-to-card presentation | Component/CSS implementation switches below the desktop breakpoint | MANUAL ONLY |
-| Long text, long names, and 2,000-character display | No browser viewport or screenshot test | MANUAL ONLY |
-| 1440px, tablet, mobile, zoom, and horizontal-scroll behavior | Legacy Lab 2–3 Playwright responsive suites exist; no Lab 4 responsive/browser suite covers these new screens | MANUAL ONLY |
-| Mobile touch targets and keyboard-only traversal | Semantic controls and focus styles exist; no browser-level test | MANUAL ONLY |
-| View/Edit control grouping and Staff Queue layout | Scoped UI/CSS implementation exists; manual visual review required | MANUAL ONLY |
+| Lab 4 responsive layouts | `e2e/lab-04/responsive.spec.ts` covers 1440×900, 1024×768, 390×844, and 320×568 across Requester, Staff, and Administrator screens | IMPLEMENTED / AUTOMATED — 12/12 passed |
+| Lab 4 accessibility and keyboard paths | `e2e/lab-04/accessibility.spec.ts` covers named controls, keyboard flows, validation focus, live status, role denial, and safe failure states | IMPLEMENTED / AUTOMATED — 7/7 passed |
+| Screenshot visual review | Required-viewport Requester/Staff dashboards, Staff detail, and Administrator inspection plus `actions-taken/list-desktop.png`, `edit-draft-desktop.png`, `create-form-desktop.png`, `validation-mobile.png`, `completed-readonly-tablet.png`, and `requester-readonly-mobile.png` | MANUAL REVIEWED — dashboard/action states show no visible clipping/overlap; Zen Green presentation consistent |
+| Live keyboard-focus review | Local Sign in screen reviewed with keyboard Tab focus | MANUAL REVIEWED — focus remained visible and unclipped |
+| Zoom and touch review | Representative Lab 4 screens were reviewed manually at 200% browser zoom and on mobile layouts. Controls remained readable and reachable, focus remained visible, and no blocking clipping, overlap, or unusable horizontal scrolling was observed. Primary mobile controls remained practically usable by touch. | MANUAL REVIEWED |
+| Optional hardening review | Dedicated contrast tooling, full screen-reader review, and hands-on native-dialog review remain optional follow-up only. | OPTIONAL / NOT REQUIRED FOR CURRENT AC COMPLETION |
 
 ## 6. Workflow Coverage — Issue 30
 
@@ -76,7 +78,7 @@ The Actions Taken UI is mounted on Requester Ticket Detail, Staff Ticket Detail,
 | WORKFLOW-04 | API/client | AC-13 | Administrator operational owner/claim/priority/status behavior and Requester denial | Administrator receives approved Staff behavior; Requester writes remain forbidden | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `client/tests/lab-03/AdminTicketInspection.test.tsx` | IMPLEMENTED / AUTOMATED |
 | CONFLICT-03 | API/client | AC-15 | Versioned owner/claim/priority/status and advisory writes, stale races, conflict refresh | One concurrent mutation succeeds, stale write returns `409 STALE_UPDATE`, and UI refreshes authoritative state without false success | `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-03/StaffTicketDetail.test.tsx` | IMPLEMENTED / AUTOMATED |
 
-## 7. Issue 31 Dashboard Evidence and Future Coverage
+## 7. Issue 31 Dashboard Evidence
 
 Issue 31 backend evidence IDs:
 
@@ -90,12 +92,13 @@ Issue 31 backend evidence IDs:
 | DASH-UI-02 | `client/tests/lab-04/Dashboards.test.tsx`; `client/tests/lab-03/App.logout.test.tsx` | Loading busy state, real empty zero state, safe error/retry, 401 clearing protected data and returning to Login, 403 showing Access denied, `PASSWORD_CHANGE_REQUIRED` entering the forced-password flow, atomic successful refresh, stale network/5xx refresh preservation, and completed-Action pagination links |
 | DASH-UI-03 | `client/tests/lab-03/App.logout.test.tsx`; `client/tests/lab-02/MyTickets.test.tsx`; `client/tests/lab-03/StaffTicketQueue.test.tsx` | Role landing/navigation guards, Administrator deep-link preservation, non-Administrator User Management deep links showing Access denied, and returned dashboard query propagation to My Tickets and Ticket Queue, including visible reset controls |
 
-| Area | Planned evidence | Status |
+| Area | Evidence | Status |
 |---|---|---|
-| Requester and Staff/Admin dashboards, drill-downs, predicates, performance | Server dashboard tests plus `client/tests/lab-04/Dashboards.test.tsx` and list/queue routing tests | IMPLEMENTED / AUTOMATED for aggregates, status/priority buckets, ownership scoping, deterministic boundaries, drill-down parity, query guards, dashboard component states, and hash drill-down routing; performance coverage remains planned |
-| Playwright Action/workflow/dashboard flows | `e2e/lab-04/*.spec.ts` | PLANNED / FUTURE ISSUES 30–33 |
-| Browser responsive/accessibility suites | `responsive.spec.ts`, `accessibility.spec.ts` | PLANNED / FUTURE ISSUE 33 |
-| Release evidence, screenshots, final regression checklist | Manual release checklist | PLANNED / FUTURE ISSUE 33 |
+| Requester and Staff/Admin dashboards, drill-downs, predicates | Server dashboard tests plus `client/tests/lab-04/Dashboards.test.tsx` and list/queue routing tests | IMPLEMENTED / AUTOMATED for aggregates, status/priority buckets, ownership scoping, deterministic boundaries, drill-down parity, query guards, dashboard component states, and hash drill-down routing |
+| Playwright Action/workflow/dashboard flows | `e2e/lab-04/authenticated-flows.spec.ts` | IMPLEMENTED / AUTOMATED — 5/5 passed |
+| Browser responsive/accessibility suites | `e2e/lab-04/responsive.spec.ts`, `e2e/lab-04/accessibility.spec.ts` | IMPLEMENTED / AUTOMATED — 12/12 responsive and 7/7 accessibility passed |
+| Performance smoke | `server/tests/lab-04/performance-smoke.test.ts` | IMPLEMENTED / AUTOMATED — exact dashboard counts, five-item previews, bounded pagination, 12-query small/large comparison, and safe health payload |
+| Release evidence and peer approval | Screenshot/manual checklist, reviewer record, and final submission review | PARTIAL — factual evidence recorded; final peer approval remains pending |
 
 Existing Lab 1–3 regression suites continue to run in the verified server/client results above. Future work must retain authorization, ownership, file, comment/note, account-safety, and Ticket regressions.
 
@@ -109,7 +112,17 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | REG-AC-14 | `server/tests/lab-04/actions-taken.api.test.ts` | Forced-password IT Staff and Administrators cannot create or patch Actions; no Action or Ticket-version mutation occurs | IMPLEMENTED / AUTOMATED |
 | REG-AC-20 | `client/tests/lab-04/ActionsTakenPanel.test.tsx` | Deferred create shows disabled `Saving…`; repeated click and programmatic form submit produce exactly one mutation; normal success completes after resolution | IMPLEMENTED / AUTOMATED |
 
-## 9. Acceptance-Criteria Traceability
+## 9. Implemented Browser and Performance Coverage — Issue 33
+
+| Evidence ID | Test file | Coverage proved by current assertions | Status |
+|---|---|---|---|
+| E2E-L4-01–05 | `e2e/lab-04/authenticated-flows.spec.ts` | Requester, Staff, and Administrator end-to-end dashboard/detail/Action/workflow flows plus protected-route recovery | IMPLEMENTED / AUTOMATED — 5/5 passed |
+| RESP-L4-01–12 | `e2e/lab-04/responsive.spec.ts` | Required 1440×900, 1024×768, 390×844, and 320×568 layouts; no page overflow; reachable dashboards, Actions, workflow controls, and mobile navigation | IMPLEMENTED / AUTOMATED — 12/12 passed |
+| A11Y-L4-01–07 | `e2e/lab-04/accessibility.spec.ts` | Keyboard navigation, labels, validation focus, live feedback, role denial, forced-password and retry states | IMPLEMENTED / AUTOMATED — 7/7 passed |
+| SCREEN-L4-01–02 | `e2e/lab-04/screenshot-evidence.spec.ts` | Representative Actions Taken list, Draft edit, create form, mobile validation placement, terminal read-only presentation, and Requester read-only controls | IMPLEMENTED / AUTOMATED — 2/2 passed |
+| PERF-01 | `server/tests/lab-04/performance-smoke.test.ts` | Dedicated 30-Ticket/25-Action fixture; exact dashboard aggregates; five-item preview cap; Requester/Staff/Action pagination bounds; fixed 12-query dashboard path for small and larger fixture sizes; safe health response | IMPLEMENTED / AUTOMATED — 3/3 passed in three consecutive focused runs |
+
+## 10. Acceptance-Criteria Traceability
 
 | AC | Current evidence | Status |
 |---|---|---|
@@ -121,18 +134,19 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | AC-06 | WORKFLOW-01 | IMPLEMENTED / AUTOMATED |
 | AC-07 | WORKFLOW-02 | IMPLEMENTED / AUTOMATED |
 | AC-08 | WORKFLOW-03 | IMPLEMENTED / AUTOMATED |
-| AC-09–AC-12 | DASH-01–DASH-04; DASH-UI-01–DASH-UI-03 | IMPLEMENTED / AUTOMATED for the covered backend route slice, deterministic boundary evidence, drill-down parity, dashboard component states, and role/hash routing; performance remains planned |
+| AC-09–AC-12 | DASH-01–DASH-04; DASH-UI-01–DASH-UI-03; E2E-L4-01–05 | IMPLEMENTED / AUTOMATED for backend/dashboard predicates, routing, and browser workflows |
 | AC-13 | WORKFLOW-04, ACTION-06 and inherited authorization regressions | IMPLEMENTED / AUTOMATED |
 | AC-14 | Inherited auth/session regressions, REG-AC-14 | IMPLEMENTED / AUTOMATED |
-| AC-15 | ACTION-07, CONFLICT-01, CONFLICT-03, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED for idempotency/stale handling; browser-level unknown-network recovery is planned |
+| AC-15 | ACTION-07, CONFLICT-01, CONFLICT-03, UI-ACTION-03, UI-STATE-01 | IMPLEMENTED / AUTOMATED — idempotency, stale-update handling, conflict recovery, and authoritative refresh are covered. |
 | AC-16 | MIG-01 | IMPLEMENTED / AUTOMATED for current additive migration evidence |
 | AC-17 | Inherited server/client regressions | IMPLEMENTED / AUTOMATED regression coverage |
-| AC-18 | Responsive/styles manual review | MANUAL ONLY |
-| AC-19 | UI-A11Y-01 plus keyboard/zoom review | PARTIAL — automated form semantics/focus; browser checks MANUAL ONLY |
-| AC-20 | UI-STATE-01, REG-AC-20 | IMPLEMENTED / AUTOMATED for duplicate-submit prevention and covered panel states; browser failure matrix remains planned |
+| AC-18 | RESP-L4-01–12; screenshot visual review; manual zoom/touch review | IMPLEMENTED / VERIFIED — required viewports, no blocking overflow/clipping/overlap, reachable controls, Zen Green consistency, 200% zoom usability, and representative touch usability are covered. |
+| AC-19 | UI-A11Y-01; A11Y-L4-01–07; live focus review; manual zoom/touch review | IMPLEMENTED / VERIFIED — keyboard operation, visible focus, labeling, error association, status text, accessible confirmation behavior, 200% zoom usability, and representative touch usability are covered. Dedicated contrast tooling and full screen-reader review remain optional hardening. |
+| AC-20 | UI-STATE-01, REG-AC-20 | IMPLEMENTED / AUTOMATED — duplicate-submit prevention, recoverable state handling, draft preservation, and authoritative refresh are covered. |
 | AC-21 | SEED-01 | IMPLEMENTED / AUTOMATED |
-| AC-22–AC-23 | Performance and release work | PLANNED / FUTURE ISSUE 33 |
+| AC-22 | PERF-01 | IMPLEMENTED / AUTOMATED |
+| AC-23 | Current verification record, Issue 33 evidence, screenshots, README, reviewer and AI-use records | PARTIAL — required automated, responsive, accessibility, screenshot, README, and release evidence are complete; final peer approval remains pending. |
 
-## 10. Maintenance Rules
+## 11. Maintenance Rules
 
 Record future results with command, environment, and actual counts. Never mark a test as passed merely because a plan row exists. Database-backed tests must use a test-only database, own uniquely named fixtures, and clean in foreign-key-safe order. Do not use a suite-local disconnect on the shared application Prisma singleton.

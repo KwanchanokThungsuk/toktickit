@@ -9,5 +9,7 @@ export default defineConfig({
     // aggregate every Ticket, so parallel files cannot provide a stable aggregate/drill-down
     // snapshot while they create and remove their own fixtures.
     fileParallelism: false,
+    pool: "forks",
+    poolOptions: { forks: { singleFork: true } },
   },
 });

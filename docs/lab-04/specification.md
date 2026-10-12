@@ -1,6 +1,6 @@
 # Lab 4 – Sprint 4 Engineering Specification
 
-**Status:** The Issue 28 Actions Taken backend foundation, Issue 29 Actions Taken UI, Issue 30 workflow, and Issue 31 dashboard increments are implemented and verified as recorded in [tests.md](tests.md). This contract continues to govern those delivered increments and the planned responsive/accessibility and release work in Issues 32–33. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
+**Status:** Issues 28–33 are implemented and verified as recorded in [tests.md](tests.md), including Actions Taken, workflow, dashboards, regression coverage, browser flows, responsive/accessibility evidence, screenshots, and performance smoke coverage. This contract continues to govern those delivered increments. Final peer approval remains pending. IDs in this directory are Lab 4 IDs, independent of Lab 3 IDs.
 
 **Authority:** [Lab 4 handout](Lab_4_sheet.pdf), especially sections 4–8 and submission Part 6. The [Lab 3 specification](../lab-03/specification.md), [UI](../lab-03/ui-spec.md), [API](../lab-03/api-spec.md), [tests](../lab-03/tests.md), peer review record, and actual source establish the inherited baseline. [UI details](ui-spec.md), [REST contract](api-spec.md), and [test traceability](tests.md) complete this contract.
 
@@ -144,7 +144,7 @@ The matrix was verified against `server/src/routes/staff-ticket-detail.ts`, the 
 
 ## 7. Actions Taken Data Model
 
-Conceptual design only; implementation must later update Prisma and migrate PostgreSQL.
+Implemented data model; Prisma schema and the additive PostgreSQL migration provide the fields below.
 
 | Field | Type / meaning |
 |---|---|
@@ -255,7 +255,7 @@ UI summary: extend AppShell hash navigation and existing Ticket Detail panels; u
 
 ## 12. Definition of Done
 
-This is a future product-release checklist, not the completion claim for this documentation task.
+This release checklist governs final readiness. The implemented and verified evidence is recorded in [tests.md](tests.md); final peer approval remains pending.
 
 - [ ] Four contracts agree on IDs, roles, fields, gates, metrics, filters, errors and tests; contract predates implementation PR completion.
 - [ ] Actions support documented modes, assignment/lifecycle, shared visibility, server attribution, version checks and duplicate-submit safety.

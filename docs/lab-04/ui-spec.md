@@ -1,6 +1,6 @@
 # Lab 4 UI Specification
 
-**Status:** The Issue 29 Actions Taken UI, Issue 30 workflow UI, and Issue 31 dashboard UI are implemented and verified as recorded in [tests.md](tests.md). This contract also defines planned UI work for Issues 32–33, which is not claimed implemented. [specification.md](specification.md) is authoritative for rules/metrics/roles; [api-spec.md](api-spec.md) defines payloads and filters; [tests.md](tests.md) records implemented, manual-only, and planned evidence.
+**Status:** The Issue 29 Actions Taken UI, Issue 30 workflow UI, Issue 31 dashboard UI, and Issue 32–33 regression, browser, responsive, accessibility, and screenshot evidence are implemented and verified as recorded in [tests.md](tests.md). [specification.md](specification.md) is authoritative for rules/metrics/roles; [api-spec.md](api-spec.md) defines payloads and filters; [tests.md](tests.md) records implemented evidence and any remaining optional manual checks. Final peer approval remains pending.
 
 ## 1. Design Principles and Application Shell
 

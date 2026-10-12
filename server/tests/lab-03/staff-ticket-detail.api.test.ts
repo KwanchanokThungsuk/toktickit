@@ -132,20 +132,25 @@ describe("Issue #20 staff ticket detail and ownership", () => {
   it("requires expected versions and atomically rejects stale owner, claim, and priority writes", async () => {
     const staffAuth = await authenticatedAgent(staff.email, password);
     const adminAuth = await authenticatedAgent(admin.email, password);
-    await prisma.ticket.update({ where: { id: ticketId }, data: { assignedToUserId: null, itPriority: "MEDIUM" } });
-    expect((await staffAuth.agent.patch(`/api/staff/tickets/${ticketId}/owner`).set("X-CSRF-Token", staffAuth.csrfToken).send({ ownerId: staff.id })).status).toBe(422);
-    expect((await staffAuth.agent.post(`/api/staff/tickets/${ticketId}/claim`).set("X-CSRF-Token", staffAuth.csrfToken).send({ expectedVersion: "1" })).status).toBe(422);
-    expect((await staffAuth.agent.patch(`/api/staff/tickets/${ticketId}/priority`).set("X-CSRF-Token", staffAuth.csrfToken).send({ itPriority: "HIGH" })).status).toBe(422);
-    const initial = await version();
-    const [ownerA, ownerB] = await Promise.all([updateOwner(staffAuth.agent, staffAuth.csrfToken, staff.id, ticketId, initial), updateOwner(adminAuth.agent, adminAuth.csrfToken, staffB.id, ticketId, initial)]);
-    expect([ownerA.status, ownerB.status].sort()).toEqual([200, 409]);
-    const afterOwner = await version();
-    const [claimA, claimB] = await Promise.all([claim(staffAuth.agent, staffAuth.csrfToken, ticketId, afterOwner), claim(adminAuth.agent, adminAuth.csrfToken, ticketId, afterOwner)]);
-    expect([claimA.status, claimB.status].sort()).toEqual([200, 409]);
-    const afterClaim = await version();
-    const [priorityA, priorityB] = await Promise.all([updatePriority(staffAuth.agent, staffAuth.csrfToken, "HIGH", ticketId, afterClaim), updatePriority(adminAuth.agent, adminAuth.csrfToken, "LOW", ticketId, afterClaim)]);
-    expect([priorityA.status, priorityB.status].sort()).toEqual([200, 409]);
-    expect(await version()).toBe(afterClaim + 1);
+    const concurrentTicket = await prisma.ticket.create({ data: { ticketNumber: `TKT-DETAIL-RACE-${Date.now()}`, requesterId: requester.id, categoryId, relatedSystemId: systemId, summary: "Isolated concurrency fixture", description: "A dedicated Ticket fixture for stale-update concurrency coverage.", requestedPriority: "MEDIUM", itPriority: "MEDIUM", currentStatus: "IN_PROGRESS" } });
+    try {
+      const concurrentTicketId = concurrentTicket.id;
+      expect((await staffAuth.agent.patch(`/api/staff/tickets/${concurrentTicketId}/owner`).set("X-CSRF-Token", staffAuth.csrfToken).send({ ownerId: staff.id })).status).toBe(422);
+      expect((await staffAuth.agent.post(`/api/staff/tickets/${concurrentTicketId}/claim`).set("X-CSRF-Token", staffAuth.csrfToken).send({ expectedVersion: "1" })).status).toBe(422);
+      expect((await staffAuth.agent.patch(`/api/staff/tickets/${concurrentTicketId}/priority`).set("X-CSRF-Token", staffAuth.csrfToken).send({ itPriority: "HIGH" })).status).toBe(422);
+      const initial = await version(concurrentTicketId);
+      const [ownerA, ownerB] = await Promise.all([updateOwner(staffAuth.agent, staffAuth.csrfToken, staff.id, concurrentTicketId, initial), updateOwner(adminAuth.agent, adminAuth.csrfToken, staffB.id, concurrentTicketId, initial)]);
+      expect([ownerA.status, ownerB.status].sort()).toEqual([200, 409]);
+      const afterOwner = await version(concurrentTicketId);
+      const [claimA, claimB] = await Promise.all([claim(staffAuth.agent, staffAuth.csrfToken, concurrentTicketId, afterOwner), claim(adminAuth.agent, adminAuth.csrfToken, concurrentTicketId, afterOwner)]);
+      expect([claimA.status, claimB.status].sort()).toEqual([200, 409]);
+      const afterClaim = await version(concurrentTicketId);
+      const [priorityA, priorityB] = await Promise.all([updatePriority(staffAuth.agent, staffAuth.csrfToken, "HIGH", concurrentTicketId, afterClaim), updatePriority(adminAuth.agent, adminAuth.csrfToken, "LOW", concurrentTicketId, afterClaim)]);
+      expect([priorityA.status, priorityB.status].sort()).toEqual([200, 409]);
+      expect(await version(concurrentTicketId)).toBe(afterClaim + 1);
+    } finally {
+      await prisma.ticket.deleteMany({ where: { id: concurrentTicket.id } });
+    }
   });
 
   it("enforces the status transition matrix and rejects invalid values", async () => {
