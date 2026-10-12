@@ -1,12 +1,12 @@
 # Lab 4 — Peer Review Record
 
 **Author:** Kwanchanok Thungsuk — 67070501006 — GitHub: @KwanchanokThungsuk
-**Peer reviewer:** Vera Intaratung — 67070501043 — GitHub: @Ttime52
+**Peer reviewer:** Vera Intharathang — 67070501043 — GitHub: @Ttime52
 
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-| [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71) | feature/27-lab3-spec-contract | Comment and Approved |
+| [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71) | feature/27-sprint4-contract-test-plan | Comment and Approved |
 | [#72](https://github.com/KwanchanokThungsuk/toktickit/pull/72) | feature/28-actions-taken-foundation | Comment and Approved  |
 | [#73](https://github.com/KwanchanokThungsuk/toktickit/pull/73) | feature/29-actions-taken-ui |  Comment and Approved |
 | [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow | Comment and Approved |
@@ -14,7 +14,7 @@
 | [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76) | feature/32-lab4-tests-regression | Approved |
 | [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) | feature/33-final-regression-accessibility-release |  |
 
-**feature/27-lab3-spec-contract**
+**feature/27-sprint4-contract-test-plan**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
 - Reviewer comment I received: The Sprint 4 contract and test plan are comprehensive overall, but I found two areas that should be resolved before implementation:
 
@@ -101,8 +101,10 @@ PR: [#75](https://github.com/KwanchanokThungsuk/toktickit/pull/75)
 
 **feature/32-lab4-tests-regression**
 PR: [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76)
-- Reviewer: 
-- How I responded: 
+- Reviewer: The added tests cover the remaining Action ordering/ownership, field boundaries and no-partial-mutation behavior, terminal Action immutability, forced-password authorization, and duplicate-submit protection. The test evidence and AC traceability were also updated consistently.
+The remaining browser E2E, responsive/accessibility, performance, and final release evidence are clearly documented as future Issue 33 work.
+No blocking issues found. Approved.
+- How I responded: Merged
 
 **feature/33-final-regression-accessibility-release**
 PR: [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77)
@@ -166,3 +168,9 @@ PR: [#67](https://github.com/Ttime52/toktickit/pull/67)
     The current implementation renders those controls inline in the Work Controls section instead of using the required dialog.
     Please update the Resolved/Closed workflow UI to match the documented confirmation-dialog behavior before approval.
 - Partner's response: Fixed the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox,  and keyboard/focus behavior. Ready to re-review.
+
+**feature/27-dashboards**
+PR: [#68](https://github.com/Ttime52/toktickit/pull/68)
+- My comment: Dashboard drill-down windows are not tied to the dashboard snapshot.
+The dashboard captures a fixed asOf value for its metrics, but the drill-down links use relative filters such as updatedWithin=7d / resolvedWithin=7d, and the destination list recomputes the window at request time. This can cause the card count and drill-down results to disagree around the reporting boundary. The drill-down should preserve the exact server-captured window used for the dashboard metrics.
+- Partner's response: Implemented the dashboard drill-down snapshot fix. Please recheck again.

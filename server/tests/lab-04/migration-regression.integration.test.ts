@@ -1,14 +1,10 @@
 import { readFile } from "node:fs/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { migrationPath, quoteSql, withMigrationDatabase } from "../helpers/migration-test-database.js";
+import { migrationPath, quoteSql, runPostgresCommand, withMigrationDatabase } from "../helpers/migration-test-database.js";
 
-const run = promisify(execFile);
-const psql = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql";
 const migrations = ["20260812091441_init", "20260901064340_init_lab_02_schema", "20260917000000_lab3_user_auth", "20260918120000_issue19_queue", "20260918123000_issue19_cancelled_status", "20260918130000_issue19_status_filters", "20260919100000_issue20_resolution_indication", "20260920100000_issue22_comments_notes", "20261009090000_lab4_actions_taken"];
-async function scalar(url: string, statement: string) { return (await run(psql, [url, "-At", "-c", statement])).stdout.trim(); }
+async function scalar(url: string, statement: string) { return (await runPostgresCommand("psql", [url, "-At", "-c", statement])).stdout.trim(); }
 
 describe("Lab 4 additive migration", () => {
   it("preserves representative Lab 1-3 data and creates no historical Actions", async () => {

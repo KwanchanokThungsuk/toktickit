@@ -1,12 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { migrationPath, quoteSql, withMigrationDatabase } from "../helpers/migration-test-database.js";
+import { migrationPath, quoteSql, runPostgresCommand, withMigrationDatabase } from "../helpers/migration-test-database.js";
 
-const run = promisify(execFile);
-const PSQL = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql";
 const lab2 = ["20260812091441_init", "20260901064340_init_lab_02_schema"];
 const lab3 = [
   "20260917000000_lab3_user_auth",
@@ -15,7 +11,7 @@ const lab3 = [
   "20260918130000_issue19_status_filters",
   "20260919100000_issue20_resolution_indication",
 ];
-async function scalar(url: string, sql: string) { const result = await run(PSQL, [url, "-v", "ON_ERROR_STOP=1", "-At", "-c", sql]); return result.stdout.trim(); }
+async function scalar(url: string, sql: string) { const result = await runPostgresCommand("psql", [url, "-v", "ON_ERROR_STOP=1", "-At", "-c", sql]); return result.stdout.trim(); }
 
 describe("pre-existing Lab 2 Ticket and Attachment preservation across Lab 3 migration", () => {
   it("preserves the same IDs, data, ownership, and relationship after the real migrations", async () => {

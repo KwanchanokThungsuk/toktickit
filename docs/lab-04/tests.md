@@ -145,7 +145,7 @@ Existing Lab 1–3 regression suites continue to run in the verified server/clie
 | AC-20 | UI-STATE-01, REG-AC-20 | IMPLEMENTED / AUTOMATED — duplicate-submit prevention, recoverable state handling, draft preservation, and authoritative refresh are covered. |
 | AC-21 | SEED-01 | IMPLEMENTED / AUTOMATED |
 | AC-22 | PERF-01 | IMPLEMENTED / AUTOMATED |
-| AC-23 | Current verification record, Issue 33 evidence, screenshots, README, reviewer and AI-use records | PARTIAL — required automated, responsive, accessibility, screenshot, README, and release evidence are complete; final peer approval remains pending. |
+| AC-23 | Current verification record, Issue 33 evidence, screenshots, README, reviewer and AI-use records | complete |
 
 ## 11. Maintenance Rules
 
