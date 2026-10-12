@@ -1,6 +1,6 @@
 # Lab 4 REST API Specification
 
-**Status:** The Issue 28 Actions Taken backend foundation, Issue 30 workflow API, and Issue 31 dashboard API are implemented and verified as recorded in [tests.md](tests.md). This contract also defines later Sprint 4 API requirements for Issues 32–33, which are not claimed implemented. [specification.md](specification.md) defines rules, matrix and metric predicates; [ui-spec.md](ui-spec.md) defines controls; [tests.md](tests.md) records implemented, manual-only, and planned evidence. Retain Lab 3 `/api/tickets` and `/api/staff/tickets` naming, integer IDs, JSON bodies, ISO timestamps and safe error envelope. IDs here reference Lab 4.
+**Status:** The Issue 28 Actions Taken backend foundation, Issue 30 workflow API, Issue 31 dashboard API, and Issue 32–33 regression and browser evidence are implemented and verified as recorded in [tests.md](tests.md). [specification.md](specification.md) defines rules, matrix and metric predicates; [ui-spec.md](ui-spec.md) defines controls; [tests.md](tests.md) records implemented evidence and any remaining optional manual checks. Final peer approval remains pending. Retain Lab 3 `/api/tickets` and `/api/staff/tickets` naming, integer IDs, JSON bodies, ISO timestamps and safe error envelope. IDs here reference Lab 4.
 
 ## 1. Authentication / Authorization Expectations
 
@@ -122,7 +122,7 @@ These existing routes expand to Administrator and verify the expected Ticket ver
 
 `200` success; `401/403/404/422/409/500` as above. Expose `X-Ticket-Version` through existing CORS configuration; validate eligible active owner inside transaction. Requested Priority never changes. A claim against an already assigned Ticket is `409 OWNER_ALREADY_ASSIGNED`, avoiding overwriting a concurrent claim. Existing owner-edit response envelope remains compatible. Detail GETs expose Ticket.version; Staff Detail adds `resolutionEligibility:{canResolve:boolean,reasons:string[]}` and action assignee options from active Staff/Admin identities. This computed eligibility is guidance; mutation always rechecks.
 
-Public Comment and Internal Note POST routes gain Administrator permission and password-change/CSRF enforcement; their body/response/append-only semantics stay unchanged. Existing Ticket creation must enforce CSRF, and protected detail/communication reads must enforce mandatory password change where guards are currently missing. File API ownership, limits and responses remain unchanged. These are future hardening increments, not statements that current guards already exist.
+Public Comment and Internal Note POST routes include Administrator permission and password-change/CSRF enforcement; their body/response/append-only semantics stay unchanged. Existing Ticket creation enforces CSRF, and protected detail/communication reads enforce mandatory password change where required. File API ownership, limits and responses remain unchanged. Current implementation and regression evidence are recorded in [tests.md](tests.md).
 
 ## 5. Requester Dashboard
 

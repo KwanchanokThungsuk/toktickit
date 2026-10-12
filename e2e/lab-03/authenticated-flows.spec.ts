@@ -16,8 +16,8 @@ const e2eTicketId = existsSync(fixturePath)
 const authScreenshotDirectory = resolve("artifacts/lab-03/screenshots/auth");
 mkdirSync(authScreenshotDirectory, { recursive: true });
 
-async function login(page: Page, email: string) {
-  await page.goto("#/tickets");
+async function login(page: Page, email: string, path = "#/tickets") {
+  await page.goto(path);
 
   await page.getByLabel("Email").fill(email);
   await page.getByRole("textbox", { name: /password/i }).fill(password);
@@ -54,16 +54,16 @@ test("E2E-REQUESTER-01: authenticated Requester sees only Requester navigation",
 });
 
 test("E2E-STAFF-01: authenticated IT Staff sees the Ticket Queue", async ({ page }) => {
-  await login(page, accounts.staff);
+  await login(page, accounts.staff, "#/staff/tickets");
   await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ticket Queue" })).toBeVisible();
   await expect(page.getByRole("link", { name: "User Management" })).toHaveCount(0);
 });
 
-test("E2E-ADMIN-01: authenticated Administrator sees User Management only", async ({ page }) => {
-  await login(page, accounts.admin);
+test("E2E-ADMIN-01: authenticated Administrator retains User Management and operational navigation", async ({ page }) => {
+  await login(page, accounts.admin, "#/admin/users");
   await expect(page.getByRole("link", { name: "User Management" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ticket Queue" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
 });
 
@@ -113,7 +113,7 @@ test("E2E-REQUESTER-02: Requester can create and view an owned ticket", async ({
 });
 
 test("E2E-STAFF-02: IT Staff can open a queue ticket and use workflow controls", async ({ page }) => {
-  await login(page, accounts.staff);
+  await login(page, accounts.staff, "#/staff/tickets");
   await expect(page.getByRole("heading", { name: "Ticket Queue" })).toBeVisible();
   await page.getByLabel("Search tickets").fill("E2E-2026");
   await page.getByRole("link", { name: "Open Detail" }).first().click();
@@ -126,7 +126,7 @@ test("E2E-STAFF-02: IT Staff can open a queue ticket and use workflow controls",
   await expect(page.getByLabel("Ticket owner").locator("option:checked")).toHaveText("E2E IT Staff (IT_STAFF)");
   await page.getByLabel("Ticket status").selectOption("OPEN");
   await page.getByRole("button", { name: "Save status" }).click();
-  await expect(page.getByText("OPEN").first()).toBeVisible();
+  await expect(page.getByLabel("Ticket status")).toHaveValue("OPEN");
   await expect(page.getByRole("heading", { name: "Public Comments" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Internal Notes" })).toBeVisible();
   const runId = Date.now();
@@ -140,17 +140,17 @@ test("E2E-STAFF-02: IT Staff can open a queue ticket and use workflow controls",
   await expect(page.getByRole("region", { name: "Internal Notes" }).locator("li p").filter({ hasText: internalNote })).toBeVisible();
 });
 
-test("E2E-ADMIN-02: Administrator can manage users without staff navigation", async ({ page }) => {
-  await login(page, accounts.admin);
+test("E2E-ADMIN-02: Administrator can manage users alongside operational navigation", async ({ page }) => {
+  await login(page, accounts.admin, "#/admin/users");
   await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create User" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ticket Queue" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
   await page.getByRole("textbox", { name: /search users/i }).fill("e2e.requester@example.com");
   await expect(page.getByText("e2e.requester@example.com")).toBeVisible();
 });
 
-test("E2E-ADMIN-03: Administrator can inspect communications and update IT Priority", async ({ page }) => {
-  await login(page, accounts.admin);
+test("E2E-ADMIN-03: Administrator can inspect communications and use approved Ticket operations", async ({ page }) => {
+  await login(page, accounts.admin, "#/admin/users");
   await page.goto(`#/tickets/${e2eTicketId}`);
   await expect(page.getByRole("heading", { name: "Ticket Inspection" })).toBeVisible();
   await expect(page.getByText("E2E workflow fixture")).toBeVisible();
@@ -161,35 +161,32 @@ test("E2E-ADMIN-03: Administrator can inspect communications and update IT Prior
   await page.getByLabel("IT Priority").selectOption("HIGH");
   await page.getByRole("button", { name: "Save IT Priority" }).click();
   await expect(page.getByLabel("IT Priority")).toHaveValue("HIGH");
-  await expect(page.getByRole("button", { name: "Claim ticket" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Claim ticket" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add comment" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add note" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Ticket Queue" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
 });
 
 test("E2E-AUTHZ-01: Requester cannot enter staff or admin areas", async ({ page }) => {
   await login(page, accounts.requester);
   await page.goto("#/staff/tickets");
-  await expect(page.getByText("IT Staff access is required to view the Ticket Queue.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
   await page.goto("#/admin/users");
-  await expect(page).toHaveURL(/#\/tickets$/);
-  await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "User Management" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Create User" })).toHaveCount(0);
 });
 
-test("E2E-AUTHZ-02: Administrator cannot enter the Staff Queue", async ({ page }) => {
-  await login(page, accounts.admin);
+test("E2E-AUTHZ-02: Administrator can enter the operational Staff Queue", async ({ page }) => {
+  await login(page, accounts.admin, "#/admin/users");
   await page.goto("#/staff/tickets");
-  await expect(page.getByText("IT Staff access is required to view the Ticket Queue.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Claim ticket" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Ticket Queue" })).toBeVisible();
 });
 
 test("E2E-AUTHZ-03: IT Staff cannot enter User Management", async ({ page }) => {
-  await login(page, accounts.staff);
+  await login(page, accounts.staff, "#/staff/tickets");
   await page.goto("#/admin/users");
-  await expect(page).toHaveURL(/#\/staff\/tickets$/);
-  await expect(page.getByRole("heading", { name: "Ticket Queue" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "User Management" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Create User" })).toHaveCount(0);
 });

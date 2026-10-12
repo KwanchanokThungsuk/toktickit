@@ -446,7 +446,7 @@
 
             {ticket.currentStatus === "IN_PROGRESS" || ticket.currentStatus === "WAITING_FOR_REQUESTER" ? (
               <div className="ticket-detail__wide">
-                {ticket.requesterResolutionIndicatedAt ? <p className="text-success">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
+                {ticket.requesterResolutionIndicatedAt ? <p className="text-success" role="status">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
                 {resolutionError ? <p className="text-danger">{resolutionError}</p> : null}
               </div>
             ) : null}

@@ -8,12 +8,9 @@ const requester = {
 };
 
 async function mockApi(page: Page) {
-  await page.addInitScript((selectedRequester) => {
-    localStorage.setItem(
-      "toktickit-selected-requester",
-      JSON.stringify(selectedRequester),
-    );
-  }, requester);
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({ json: { user: { ...requester, role: "REQUESTER", mustChangePassword: false } } }),
+  );
 
   await page.route("**/api/categories", (route) =>
     route.fulfill({ json: [{ id: 1, name: "Hardware" }] }),
@@ -183,7 +180,7 @@ test("RESP-04: mobile navigation opens and keeps requester and primary navigatio
 
   const menuButton = page.locator(".app-header__menu");
   await expect(menuButton).toBeVisible();
-  await expect(page.getByTitle(requester.name)).toBeVisible();
+  await expect(page.getByLabel(`Signed in as ${requester.name}, REQUESTER`)).toBeVisible();
   await menuButton.click();
 
   const navigation = page.getByRole("navigation", { name: "Main navigation" });

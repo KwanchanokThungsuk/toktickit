@@ -137,6 +137,24 @@ describe("ActionsTakenPanel", () => {
     expect(screen.queryByRole("button", { name: "Saving…" })).not.toBeInTheDocument();
   });
 
+  it("requests an authoritative Ticket refresh after a successful Action mutation", async () => {
+    vi.mocked(fetchActionsTaken).mockResolvedValue(response([]));
+    let resolveRefresh!: () => void;
+    const onTicketRefreshRequested = vi.fn(() => new Promise<void>((resolve) => { resolveRefresh = resolve; }));
+    vi.mocked(createActionTaken).mockResolvedValue({ action: action(9, "DRAFT"), ticketVersion: 5 });
+    render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="OPEN" onTicketRefreshRequested={onTicketRefreshRequested} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add Action" }));
+    fireEvent.change(screen.getByLabelText("Action Description *"), { target: { value: "Refresh parent" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    await waitFor(() => expect(createActionTaken).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onTicketRefreshRequested).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    resolveRefresh();
+    expect(await screen.findByText("Action saved.")).toBeInTheDocument();
+  });
+
   it("keeps inactive Tickets read-only and preserves a stale create draft for review", async () => {
     vi.mocked(fetchActionsTaken).mockResolvedValue(response([action(1, "DRAFT")]));
     const { rerender } = render(<ActionsTakenPanel ticketId={11} role="IT_STAFF" ticketStatus="CLOSED" />);

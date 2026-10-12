@@ -9,7 +9,7 @@ let client: PrismaClient | null = null;
 export function getPrisma(): PrismaClient {
   if (!client) {
     client = process.env.NODE_ENV === "test"
-      ? new PrismaClient({ datasources: { db: { url: getDatabaseUrl() } } })
+      ? new PrismaClient({ datasources: { db: { url: getDatabaseUrl() } }, log: [{ emit: "event", level: "query" }] })
       : new PrismaClient();
   }
   return client;
