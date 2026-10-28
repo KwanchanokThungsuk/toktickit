@@ -146,8 +146,6 @@ async function main() {
         passwordHash: hashPassword(initialPassword),
         mustChangePassword: true,
       } });
-    } else {
-      await prisma.user.update({ where: { id: existing.id }, data: { name: user.name, role: user.role, isActive: user.isActive } });
     }
   }
 
@@ -160,8 +158,18 @@ async function main() {
       { ticketNumber: "TKT-2026-000001", requesterId: seededRequesters[0].id, summary: "Cannot access campus email", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "OPEN" as const, assignedToUserId: seededStaff[0].id },
       { ticketNumber: "TKT-2026-000002", requesterId: seededRequesters[1].id, summary: "Laptop connectivity issue", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "NEW" as const, assignedToUserId: null },
       { ticketNumber: "TKT-2026-000003", requesterId: seededRequesters[0].id, summary: "VPN access request", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "IN_PROGRESS" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000004", requesterId: seededRequesters[1].id, summary: "Waiting for requester details", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "WAITING_FOR_REQUESTER" as const, assignedToUserId: seededStaff[0].id },
+      { ticketNumber: "TKT-2026-000005", requesterId: seededRequesters[0].id, summary: "Reopened service request", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "REOPENED" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000006", requesterId: seededRequesters[1].id, summary: "Resolved software issue", requestedPriority: "LOW" as const, itPriority: "LOW" as const, currentStatus: "RESOLVED" as const, assignedToUserId: seededStaff[0].id },
+      { ticketNumber: "TKT-2026-000007", requesterId: seededRequesters[0].id, summary: "Closed access request", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "CLOSED" as const, assignedToUserId: seededStaff[1].id },
+      { ticketNumber: "TKT-2026-000008", requesterId: seededRequesters[1].id, summary: "Cancelled duplicate request", requestedPriority: "HIGH" as const, itPriority: "HIGH" as const, currentStatus: "CANCELLED" as const, assignedToUserId: null },
     ];
-    for (const ticket of queueTickets) await prisma.ticket.upsert({ where: { ticketNumber: ticket.ticketNumber }, update: ticket, create: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+    for (const ticket of queueTickets) {
+      const existingTicket = await prisma.ticket.findUnique({ where: { ticketNumber: ticket.ticketNumber }, select: { id: true } });
+      if (!existingTicket) {
+        await prisma.ticket.create({ data: { ...ticket, categoryId: seededCategory.id, relatedSystemId: seededSystem.id, description: `${ticket.summary} requires support.` } });
+      }
+    }
 
     const seededTickets = await prisma.ticket.findMany({
       where: { ticketNumber: { in: queueTickets.map(({ ticketNumber }) => ticketNumber) } },
@@ -179,6 +187,118 @@ async function main() {
       }
       if (!await prisma.internalNote.findFirst({ where: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } })) {
         await prisma.internalNote.create({ data: { ticketId: noteTicket.id, authorId: staffAuthor.id, body: noteBody } });
+      }
+    }
+
+    const actionFixtures = [
+      {
+        ticketId: seededTickets[0]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-001",
+        actionDescription: "Reviewed the reported email access issue.",
+        result: null,
+        status: "DRAFT" as const,
+        followUpRequired: true,
+        followUpNote: "Confirm whether the requester can sign in after the account check.",
+        assignedToUserId: seededStaff[1].id,
+      },
+      {
+        ticketId: seededTickets[1]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-002",
+        actionDescription: "Initial triage created for the laptop connectivity issue.",
+        result: null,
+        status: "DRAFT" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: null,
+      },
+      {
+        ticketId: seededTickets[2]?.id,
+        createdById: seededStaff[1].id,
+        requestKey: "lab4-action-003",
+        actionDescription: "Checked the VPN profile and network configuration.",
+        result: "VPN settings were corrected and connectivity was restored.",
+        status: "COMPLETED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: seededStaff[1].id,
+      },
+      {
+        ticketId: seededTickets[3]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-004",
+        actionDescription: "Requested additional diagnostic information from the requester.",
+        result: "Requester was asked to provide the error message and device details.",
+        status: "COMPLETED" as const,
+        followUpRequired: true,
+        followUpNote: "Review the requested details when the requester responds.",
+        assignedToUserId: staffAuthor.id,
+      },
+      {
+        ticketId: seededTickets[4]?.id,
+        createdById: seededStaff[1].id,
+        requestKey: "lab4-action-005",
+        actionDescription: "Reopened investigation after the issue occurred again.",
+        result: null,
+        status: "DRAFT" as const,
+        followUpRequired: true,
+        followUpNote: "Retest the service after the next remediation step.",
+        assignedToUserId: seededStaff[1].id,
+      },
+      {
+        ticketId: seededTickets[5]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-006",
+        actionDescription: "Applied the software fix and verified the application.",
+        result: "The software issue was resolved successfully.",
+        status: "COMPLETED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: staffAuthor.id,
+      },
+      {
+        ticketId: seededTickets[6]?.id,
+        createdById: seededStaff[1].id,
+        requestKey: "lab4-action-007",
+        actionDescription: "Verified the completed access request before closure.",
+        result: "Access was confirmed and the request was closed.",
+        status: "COMPLETED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: seededStaff[1].id,
+      },
+      {
+        ticketId: seededTickets[7]?.id,
+        createdById: staffAuthor.id,
+        requestKey: "lab4-action-008",
+        actionDescription: "Reviewed the request and identified it as a duplicate.",
+        result: "Cancelled because another Ticket already covers the same issue.",
+        status: "CANCELLED" as const,
+        followUpRequired: false,
+        followUpNote: null,
+        assignedToUserId: null,
+      },
+    ];
+    for (const fixture of actionFixtures) {
+      if (!fixture.ticketId) continue;
+      const existing = await prisma.actionTaken.findUnique({
+        where: { ticketId_createdById_requestKey: { ticketId: fixture.ticketId, createdById: fixture.createdById, requestKey: fixture.requestKey } },
+      });
+      if (!existing) {
+        await prisma.actionTaken.create({ data: {
+          ticketId: fixture.ticketId,
+          createdById: fixture.createdById,
+          requestKey: fixture.requestKey,
+          actionDescription: fixture.actionDescription,
+          result: fixture.result,
+          status: fixture.status,
+          followUpRequired: fixture.followUpRequired,
+          followUpNote: fixture.followUpNote,
+          assignedToUserId: fixture.assignedToUserId,
+          performedById: fixture.status === "COMPLETED" ? fixture.createdById : null,
+          completedAt: fixture.status === "COMPLETED" ? new Date("2026-10-01T09:00:00.000Z") : null,
+        } });
       }
     }
   }

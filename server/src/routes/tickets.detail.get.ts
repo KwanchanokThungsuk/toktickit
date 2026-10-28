@@ -37,6 +37,7 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
             removedReason: true,
           },
         } : false,
+        actionsTaken: { select: { status: true, result: true } },
         publicComments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } },
       },
     });
@@ -53,7 +54,9 @@ router.get("/api/tickets/:id", async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json(ticket);
+    const { actionsTaken, ...detail } = ticket;
+    const resolutionReady = !actionsTaken.some((action) => action.status === "DRAFT") && actionsTaken.some((action) => action.status === "COMPLETED" && action.result?.trim());
+    return res.status(200).json({ ...detail, resolutionReady });
   } catch (error) {
     return internalServerError(res, "GET /api/tickets/:id ERROR:", error);
   }

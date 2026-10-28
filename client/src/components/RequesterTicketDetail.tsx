@@ -7,6 +7,7 @@
     type TicketDetail,
   } from "../api.detail";
   import {
+    ApiError,
     downloadAttachment,
     indicateProblemResolved,
     removeAttachment,
@@ -15,6 +16,7 @@
   } from "../api";
   import type { BadgeVariant } from "./Badge";
   import { PublicComments } from "./CommunicationPanel";
+  import ActionsTakenPanel from "./ActionsTakenPanel";
   const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
   interface RequesterTicketDetailProps {
@@ -111,6 +113,10 @@
         active = false;
       };
     }, [ticketId]);
+
+    const refreshTicket = () => {
+      fetchTicket(ticketId).then(setTicket).catch((reason) => setError(reason instanceof Error ? reason.message : "Unable to load ticket"));
+    };
 
     if (isLoading) {
       return <Loading message="Loading ticket details..." />;
@@ -305,10 +311,14 @@
       setResolutionSubmitting(true);
       setResolutionError("");
       try {
-        const updated = await indicateProblemResolved(ticketId);
-        setTicket((current) => current ? { ...current, requesterResolutionIndicatedAt: updated.requesterResolutionIndicatedAt } : current);
+        if (!ticket) return;
+        const updated = await indicateProblemResolved(ticketId, ticket.version);
+        setTicket((current) => current ? { ...current, ...updated } : current);
       } catch (reason) {
-        setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
+        if (reason instanceof ApiError && reason.status === 409) {
+          setResolutionError(reason.code === "STALE_UPDATE" ? "This Ticket changed. Refresh and review before trying again." : reason.message);
+          refreshTicket();
+        } else setResolutionError(reason instanceof Error ? reason.message : "Unable to indicate problem resolution");
       } finally { setResolutionSubmitting(false); }
     }
 
@@ -436,7 +446,7 @@
 
             {ticket.currentStatus === "IN_PROGRESS" || ticket.currentStatus === "WAITING_FOR_REQUESTER" ? (
               <div className="ticket-detail__wide">
-                {ticket.requesterResolutionIndicatedAt ? <p className="text-success">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
+                {ticket.requesterResolutionIndicatedAt ? <p className="text-success" role="status">You indicated that the problem appears resolved.</p> : <button type="button" className="btn zg-button zg-button--secondary" disabled={resolutionSubmitting} onClick={() => void handleProblemResolved()}>Problem Appears Resolved</button>}
                 {resolutionError ? <p className="text-danger">{resolutionError}</p> : null}
               </div>
             ) : null}
@@ -598,6 +608,7 @@
         </section>
 
         <PublicComments ticketId={ticket.id} initial={ticket.publicComments ?? []} />
+        <ActionsTakenPanel ticketId={ticket.id} role="REQUESTER" ticketStatus={ticket.currentStatus} onTicketRefreshRequested={refreshTicket} />
 
         {removingAttachment ? (
           <div

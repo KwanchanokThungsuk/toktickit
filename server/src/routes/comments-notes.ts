@@ -1,7 +1,7 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { getPrisma } from "../prisma.js";
 import { internalServerError } from "../internal-error.js";
-import { authenticatedUserId, requireCsrf } from "../auth.js";
+import { authenticatedUserId, requireCsrf, requirePasswordChanged, requireStaffOrAdministrator } from "../auth.js";
 
 const router = Router();
 
@@ -13,6 +13,17 @@ function bodyValue(value: unknown): { ok: true; body: string } | { ok: false } {
 
 function invalidBody(res: Response) {
   return res.status(422).json({ error: { code: "VALIDATION_ERROR", message: "Body must be non-blank and at most 2,000 characters." } });
+}
+
+/** Public comments are visible to all authenticated operational roles; Requesters
+ * retain their separate ticket-ownership check below. */
+function requireCommentAuthor(req: Request, res: Response): boolean {
+  if (!req.auth) {
+    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
+    return false;
+  }
+  if (req.auth.role === "REQUESTER") return requirePasswordChanged(req, res);
+  return requireStaffOrAdministrator(req, res);
 }
 
 router.get("/api/tickets/:id/comments", async (req, res) => {
@@ -30,15 +41,14 @@ router.get("/api/tickets/:id/comments", async (req, res) => {
 });
 
 router.post("/api/tickets/:id/comments", async (req, res) => {
-  if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
+  if (!requireCommentAuthor(req, res)) return;
   if (!requireCsrf(req, res)) return;
-  if (req.auth.role !== "REQUESTER" && req.auth.role !== "IT_STAFF") return res.status(403).json({ error: { code: "FORBIDDEN", message: "Comment creation forbidden." } });
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
   try {
     const ticket = await getPrisma().ticket.findUnique({ where: { id }, select: { requesterId: true } });
     if (!ticket) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
-    if (req.auth.role === "REQUESTER" && ticket.requesterId !== authenticatedUserId(req)) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
+    if (req.auth?.role === "REQUESTER" && ticket.requesterId !== authenticatedUserId(req)) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });
     const body = bodyValue(req.body?.body);
     if (!body.ok) return invalidBody(res);
     const comment = await getPrisma().publicComment.create({ data: { ticketId: id, authorId: authenticatedUserId(req)!, body: body.body }, select: { id: true, ticketId: true, body: true, createdAt: true, author: { select: { id: true, name: true, role: true } } } });
@@ -61,8 +71,7 @@ router.get("/api/staff/tickets/:id/internal-notes", async (req, res) => {
 });
 
 router.post("/api/staff/tickets/:id/internal-notes", async (req, res) => {
-  if (!req.auth) return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } });
-  if (req.auth.role !== "IT_STAFF") return res.status(403).json({ error: { code: "FORBIDDEN", message: "Internal Note creation forbidden." } });
+  if (!requireStaffOrAdministrator(req, res)) return;
   if (!requireCsrf(req, res)) return;
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Ticket not found." } });

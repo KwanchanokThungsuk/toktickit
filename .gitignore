@@ -148,3 +148,4 @@ docs/lab-03/*.pdf
 
 # Local runtime attachments
 server/.data/
+server/cookies.txt

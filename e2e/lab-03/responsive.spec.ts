@@ -18,8 +18,8 @@ function screenshotPath(role: "requester" | "staff" | "admin", pageName: string,
   return resolve(directory, `${pageName}-${width}x${height}.png`);
 }
 
-async function login(page: Page, email: string) {
-  await page.goto("#/tickets");
+async function login(page: Page, email: string, path = "#/tickets") {
+  await page.goto(path);
   await page.getByLabel("Email").fill(email);
   await page.getByRole("textbox", { name: /password/i }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -58,7 +58,7 @@ for (const viewport of [
     });
 
     test("IT Staff Queue remains readable and controls remain usable", async ({ page }) => {
-      await login(page, accounts.staff);
+      await login(page, accounts.staff, "#/staff/tickets");
       await expect(page.getByRole("heading", { name: "Ticket Queue" })).toBeVisible();
       await expect(page.getByLabel("Search tickets")).toBeVisible();
       await expect(page.getByLabel("Status")).toBeVisible();
@@ -68,7 +68,7 @@ for (const viewport of [
     });
 
     test("Administrator User Management remains usable", async ({ page }) => {
-      await login(page, accounts.admin);
+      await login(page, accounts.admin, "#/admin/users");
       await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Create User" })).toBeVisible();
       await expect(page.getByLabel("Search users")).toBeVisible();
@@ -82,7 +82,7 @@ for (const viewport of [
     });
 
     test("ticket detail layouts remain readable", async ({ page }) => {
-      await login(page, accounts.staff);
+      await login(page, accounts.staff, "#/staff/tickets");
       await page.goto(`#/staff/tickets/${ticketId}`);
       await expect(page.getByRole("heading", { name: "Ticket Details" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();

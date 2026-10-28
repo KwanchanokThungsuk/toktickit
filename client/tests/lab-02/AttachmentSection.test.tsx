@@ -2,9 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RequesterTicketDetail from "../../src/components/RequesterTicketDetail";
 import { fetchTicket, type TicketDetail } from "../../src/api.detail";
+import { fetchActionsTaken } from "../../src/api";
 
 vi.mock("../../src/api.detail", () => ({ fetchTicket: vi.fn() }));
-vi.mock("../../src/api", () => ({ downloadAttachment: vi.fn(), removeAttachment: vi.fn(), uploadAttachment: vi.fn() }));
+vi.mock("../../src/api", () => ({ downloadAttachment: vi.fn(), fetchActionsTaken: vi.fn(), removeAttachment: vi.fn(), uploadAttachment: vi.fn() }));
 
 const requester = { id: 3, name: "David Lee", email: "david@example.com" };
 const ticket: TicketDetail = {
@@ -17,6 +18,9 @@ const ticket: TicketDetail = {
   description: "The battery drains while idle.",
   requestedPriority: "HIGH",
   currentStatus: "NEW",
+  version: 1,
+  resolvedAt: null,
+  resolutionReady: false,
   createdAt: "2026-08-31T09:14:00.000Z",
   attachments: [{ id: 7, originalFilename: "wrong-report.pdf", contentType: "application/pdf", fileSize: 1024, uploadedAt: "2026-08-31T09:15:00.000Z", isRemoved: true, removedAt: "2026-08-31T09:16:00.000Z", removedReason: "Uploaded the wrong report" }],
 };
@@ -24,6 +28,7 @@ const ticket: TicketDetail = {
 describe("AttachmentSection", () => {
   beforeEach(() => {
     vi.mocked(fetchTicket).mockResolvedValue(ticket);
+    vi.mocked(fetchActionsTaken).mockResolvedValue({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0, ticketVersion: 1 });
   });
 
   it("shows removed metadata without download or remove controls", async () => {

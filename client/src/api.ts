@@ -1,8 +1,47 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export interface AuthUser { id: number; name: string; email: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; mustChangePassword: boolean }
+export interface ActionUserSummary { id: number; name: string; role: "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR"; }
+export type ActionStatus = "DRAFT" | "COMPLETED" | "CANCELLED";
+export interface ActionTaken {
+  id: number; ticketId: number; actionDateTime: string; actionDescription: string;
+  result: string | null; status: ActionStatus; createdBy: ActionUserSummary;
+  performedBy: ActionUserSummary | null; assignedTo: ActionUserSummary | null;
+  followUpRequired: boolean; followUpNote: string | null; attachmentNotes: string | null;
+  completedAt: string | null; createdAt: string; updatedAt: string; version: number;
+}
+export interface ActionsTakenListResponse {
+  items: ActionTaken[]; page: number; pageSize: number; totalItems: number;
+  totalPages: number; ticketVersion: number;
+}
+export interface ActionMutationResponse { action: ActionTaken; ticketVersion: number; }
+export interface CreateActionTakenInput {
+  actionDescription: string; result: string | null; followUpRequired: boolean; followUpNote: string | null;
+  attachmentNotes: string | null; assignedToUserId: number | null; status: "DRAFT" | "COMPLETED";
+  expectedTicketVersion: number; requestKey: string;
+}
+export interface UpdateActionTakenInput {
+  actionDescription: string; result: string | null; followUpRequired: boolean; followUpNote: string | null;
+  attachmentNotes: string | null; assignedToUserId: number | null; status: ActionStatus;
+  expectedTicketVersion: number; expectedVersion: number;
+}
+export class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 let csrfToken = "";
 async function csrf() { const r = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" }); const b = await r.json(); csrfToken = b.csrfToken; return csrfToken; }
 async function csrfHeader() { if (!csrfToken) await csrf(); return { "X-CSRF-Token": csrfToken }; }
+export async function fetchActionsTaken(ticketId: number, page = 1, pageSize = 20): Promise<ActionsTakenListResponse> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken?page=${page}&pageSize=${pageSize}`, { credentials: "include" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Actions Taken");
+  return body as ActionsTakenListResponse;
+}
+async function actionMutation(path: string, method: "POST" | "PATCH", body: CreateActionTakenInput | UpdateActionTakenInput): Promise<ActionMutationResponse> {
+  const response = await fetch(`${API_URL}${path}`, { method, credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify(body) });
+  const payload = await response.json();
+  if (!response.ok) throw new ApiError(response.status, payload.error?.code ?? "REQUEST_FAILED", payload.error?.message ?? "Unable to save Action");
+  return payload as ActionMutationResponse;
+}
+export function createActionTaken(ticketId: number, body: CreateActionTakenInput) { return actionMutation(`/api/staff/tickets/${ticketId}/actions-taken`, "POST", body); }
+export function updateActionTaken(ticketId: number, actionId: number, body: UpdateActionTakenInput) { return actionMutation(`/api/staff/tickets/${ticketId}/actions-taken/${actionId}`, "PATCH", body); }
 export async function login(email: string, password: string) { await csrf(); const r = await fetch(`${API_URL}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ email, password }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error?.message ?? "Unable to sign in"); await csrf(); return b.user as AuthUser; }
 export async function currentUser() { const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" }); if (!r.ok) return null; return ((await r.json()) as { user: AuthUser }).user; }
 export async function logout() { if (!csrfToken) await csrf(); await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } }); csrfToken = ""; }
@@ -72,13 +111,13 @@ export interface CreateTicketPayload {
 }
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
-export type TicketStatus = "NEW";
+export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
 export type TicketSortBy = "ticketNumber" | "createdAt" | "updatedAt";
 export type TicketSortOrder = "asc" | "desc";
 export type StaffTicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "REOPENED" | "RESOLVED" | "CLOSED" | "CANCELLED";
 export interface StaffTicket { id: number; ticketNumber: string; createdAt: string; updatedAt: string; summary: string; requestedPriority: TicketPriority; itPriority: TicketPriority; currentStatus: StaffTicketStatus; category: Category; relatedSystem: RelatedSystem; assignedTo: { id: number; name: string; email: string } | null; }
 export interface StaffTicketResponse { items: StaffTicket[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
-export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; }
+export interface StaffTicketOptions { page?: number; pageSize?: number; search?: string; status?: StaffTicketStatus; itPriority?: TicketPriority; sortBy?: TicketSortBy; sortOrder?: TicketSortOrder; owner?: "me" | "unassigned"; statusGroup?: "active"; updatedFrom?: string; updatedTo?: string; }
 export async function fetchStaffTickets(options: StaffTicketOptions = {}): Promise<StaffTicketResponse> { const params = new URLSearchParams(); Object.entries(options).forEach(([key, value]) => { if (value !== undefined && value !== "") params.set(key, String(value)); }); const res = await fetch(`${API_URL}/api/staff/tickets?${params}`, { credentials: "include" }); const body = await res.json(); if (!res.ok) throw new Error(body.error?.message ?? "Unable to load ticket queue"); return body; }
 
 export interface TicketListItem {
@@ -111,8 +150,13 @@ export interface FetchTicketsOptions {
   relatedSystemId?: string;
   requestedPriority?: TicketPriority;
   currentStatus?: TicketStatus;
-  sortBy: TicketSortBy;
-  sortOrder: TicketSortOrder;
+  statusGroup?: "active";
+  updatedFrom?: string;
+  updatedTo?: string;
+  recentlyResolvedFrom?: string;
+  recentlyResolvedTo?: string;
+  sortBy?: TicketSortBy;
+  sortOrder?: TicketSortOrder;
   page: number;
   pageSize: number;
 }
@@ -130,7 +174,26 @@ export async function fetchTickets(options: FetchTicketsOptions): Promise<Ticket
   return res.json();
 }
 
+export interface DashboardDrillDown { destination: string; query: Record<string, string>; }
+export interface DashboardMetric { count: number; drillDown: DashboardDrillDown; }
+export interface DashboardTicketSummary { id: number; ticketNumber: string; summary: string; currentStatus: TicketStatus; itPriority?: TicketPriority; assignedTo?: ActionUserSummary | null; updatedAt: string; resolutionTime?: string; resolutionTimeSource?: "FORMAL_RESOLUTION" | "LEGACY_UPDATED_AT"; }
+export interface DashboardActionSummary { id: number; ticketId: number; ticketNumber: string; actionDescription: string; status: ActionStatus; completedAt: string | null; performedBy: ActionUserSummary | null; followUpRequired: boolean; }
+export interface DashboardEnvelope { asOf: string; window: { start: string; end: string }; displayTimeZone: string; }
+export interface RequesterDashboardResponse extends DashboardEnvelope { metrics: { openTickets: DashboardMetric; waitingForRequester: DashboardMetric; recentlyUpdated: DashboardMetric; recentlyResolved: DashboardMetric; }; attentionRequired: DashboardTicketSummary[]; recentTickets: DashboardTicketSummary[]; resolvedTickets: DashboardTicketSummary[]; }
+export interface StaffDashboardResponse extends DashboardEnvelope { metrics: { unassignedTickets: DashboardMetric; myTickets: DashboardMetric; recentlyUpdated: DashboardMetric; myActions: DashboardMetric; byStatus: Record<StaffTicketStatus, DashboardMetric>; byItPriority: Record<TicketPriority, DashboardMetric>; }; recentTickets: DashboardTicketSummary[]; urgentTickets: DashboardTicketSummary[]; myRecentActions: DashboardActionSummary[]; urgentDrillDown: DashboardDrillDown; }
+export interface DashboardActionsResponse { items: DashboardActionSummary[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
+async function dashboardGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, { credentials: "include" }); const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to load dashboard");
+  return body as T;
+}
+export function fetchRequesterDashboard() { return dashboardGet<RequesterDashboardResponse>("/api/dashboard/requester"); }
+export function fetchStaffDashboard() { return dashboardGet<StaffDashboardResponse>("/api/staff/dashboard"); }
+export function fetchDashboardActions(query: Record<string, string>) { return dashboardGet<DashboardActionsResponse>(`/api/staff/dashboard/actions?${new URLSearchParams(query).toString()}`); }
+
 export interface StaffTicketDetail extends StaffTicket {
+  version: number;
+  resolvedAt: string | null;
   description: string;
   requester: { id: number; name: string; email: string };
   category: { id: number; name: string };
@@ -138,6 +201,7 @@ export interface StaffTicketDetail extends StaffTicket {
   attachments: AttachmentMetadata[];
   eligibleOwners: Array<{ id: number; name: string; email: string; role: string }>;
   requesterResolutionIndicatedAt: string | null;
+  resolutionReady: boolean;
   requesterResolutionIndicatedByUserId: number | null;
   publicComments: TicketComment[];
   internalNotes: InternalNote[];
@@ -149,10 +213,10 @@ export async function fetchAdminTicketInspection(ticketId: number): Promise<Admi
   if (!response.ok) throw new Error(body.error?.message ?? "Unable to load Ticket inspection");
   return body;
 }
-export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
+export async function updateAdminTicketPriority(ticketId: number, itPriority: TicketPriority, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority, expectedVersion }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update IT Priority");
   return body;
 }
 
@@ -196,39 +260,42 @@ export async function addInternalNote(ticketId: number, body: string): Promise<I
   return result;
 }
 
-export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null) {
+export async function updateStaffTicketOwner(ticketId: number, ownerId: number | null, expectedVersion: number) {
   const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/owner`, {
     method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) },
-    body: JSON.stringify({ ownerId }),
+    body: JSON.stringify({ ownerId, expectedVersion }),
   });
-  if (!response.ok) throw new Error("Unable to update ticket owner");
-  return response.json();
-}
-
-export async function claimStaffTicket(ticketId: number) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: await csrfHeader() });
-  if (!response.ok) throw new Error("Unable to claim ticket");
-  return response.json();
-}
-
-export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update IT Priority");
-  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority">;
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update ticket owner");
+  return { owner: body, version: Number(response.headers.get("X-Ticket-Version")) };
 }
 
-export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus) {
-  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status }) });
+export async function claimStaffTicket(ticketId: number, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/claim`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ expectedVersion }) });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Unable to update Ticket status");
-  return body as Pick<StaffTicketDetail, "id" | "currentStatus">;
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to claim ticket");
+  return { owner: body, version: Number(response.headers.get("X-Ticket-Version")) };
 }
 
-export async function indicateProblemResolved(ticketId: number) {
-  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: await csrfHeader() });
-  if (!response.ok) throw new Error("Unable to indicate problem resolution");
-  return response.json();
+export async function updateStaffTicketPriority(ticketId: number, itPriority: TicketPriority, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/priority`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ itPriority, expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update IT Priority");
+  return body as Pick<StaffTicketDetail, "id" | "requestedPriority" | "itPriority" | "version" | "updatedAt">;
+}
+
+export async function updateStaffTicketStatus(ticketId: number, status: StaffTicketStatus, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/staff/tickets/${ticketId}/status`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ status, expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to update Ticket status");
+  return body as Pick<StaffTicketDetail, "id" | "currentStatus" | "version" | "updatedAt" | "resolvedAt">;
+}
+
+export async function indicateProblemResolved(ticketId: number, expectedVersion: number) {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/problem-resolved`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", ...(await csrfHeader()) }, body: JSON.stringify({ expectedVersion }) });
+  const body = await response.json();
+  if (!response.ok) throw new ApiError(response.status, body.error?.code ?? "REQUEST_FAILED", body.error?.message ?? "Unable to indicate problem resolution");
+  return body as { id: number; currentStatus: StaffTicketStatus; requesterResolutionIndicatedAt: string; requesterResolutionIndicatedByUserId: number; version: number; updatedAt: string };
 }
 
 export async function createTicket(payload: CreateTicketPayload) {

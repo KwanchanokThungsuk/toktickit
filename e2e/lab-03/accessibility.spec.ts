@@ -10,8 +10,8 @@ const accounts = {
 const fixturePath = "/tmp/toktickit-lab3-e2e-ticket.json";
 const ticketId = existsSync(fixturePath) ? JSON.parse(readFileSync(fixturePath, "utf8")).ticketId as number : 0;
 
-async function login(page: Page, email: string) {
-  await page.goto("#/tickets");
+async function login(page: Page, email: string, path = "#/tickets") {
+  await page.goto(path);
   await page.getByLabel("Email").fill(email);
   await page.getByRole("textbox", { name: /password/i }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -51,7 +51,7 @@ test("Requester Login and Create Ticket controls are labeled and keyboard reacha
 
 test("IT Staff Queue and detail workflow controls have accessible names", async ({ page }) => {
   test.skip(!ticketId, "E2E fixture ticket is unavailable");
-  await login(page, accounts.staff);
+  await login(page, accounts.staff, "#/staff/tickets");
   await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
   await expect(page.getByLabel("Search tickets")).toBeVisible();
   await expect(page.getByLabel("Status")).toBeVisible();
@@ -66,7 +66,7 @@ test("IT Staff Queue and detail workflow controls have accessible names", async 
 
 test("Administrator User Management and inspection controls are labeled", async ({ page }) => {
   test.skip(!ticketId, "E2E fixture ticket is unavailable");
-  await login(page, accounts.admin);
+  await login(page, accounts.admin, "#/admin/users");
   await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
   await expect(page.getByLabel("Search users")).toBeVisible();
   await expect(page.getByLabel("Role")).toBeVisible();

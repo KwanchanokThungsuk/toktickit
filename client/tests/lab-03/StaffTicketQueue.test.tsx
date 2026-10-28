@@ -9,6 +9,7 @@ const data = { page: 1, pageSize: 20, totalItems: 2, totalPages: 1, items: [{ id
 describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); window.location.hash = "#/tickets"; vi.mocked(fetchStaffTickets).mockResolvedValue(data); });
   it("renders required columns, controls, owner states, and detail links", async () => { render(<StaffTicketQueue />); expect(await screen.findByText("TKT-1")).toBeInTheDocument(); expect(screen.getAllByText("Ticket Number").length).toBeGreaterThan(0); expect(screen.getByLabelText("Search tickets")).toBeInTheDocument(); expect(screen.getByText("Queue Staff")).toBeInTheDocument(); expect(screen.getByText("Unassigned")).toBeInTheDocument(); expect(screen.getAllByRole("link", { name: "Open Detail" })[0]).toHaveAttribute("href", "#/staff/tickets/1"); });
   it("updates search, filters, and sorting requests", async () => { render(<StaffTicketQueue />); await screen.findByText("TKT-1"); fireEvent.change(screen.getByLabelText("Search tickets"), { target: { value: "vpn" } }); fireEvent.change(screen.getByLabelText("Status"), { target: { value: "OPEN" } }); fireEvent.change(screen.getByLabelText("IT Priority"), { target: { value: "HIGH" } }); fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "ticketNumber" } }); await waitFor(() => expect(fetchStaffTickets).toHaveBeenCalledWith(expect.objectContaining({ search: "vpn", status: "OPEN", itPriority: "HIGH", sortBy: "ticketNumber" }))); });
+  it("applies dashboard filters, clears an incompatible status group when Status changes, and resets after Clear filters navigation", async () => { const { rerender } = render(<StaffTicketQueue routeQuery={{ owner: "unassigned", statusGroup: "active", itPriority: "HIGH", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", sortBy: "updatedAt", sortOrder: "desc" }} />); await waitFor(() => expect(fetchStaffTickets).toHaveBeenLastCalledWith(expect.objectContaining({ owner: "unassigned", statusGroup: "active", itPriority: "HIGH", updatedFrom: "2026-10-03T12:00:00.000Z", updatedTo: "2026-10-10T12:00:00.000Z", page: 1 }))); fireEvent.change(screen.getByLabelText("Status"), { target: { value: "OPEN" } }); await waitFor(() => expect(fetchStaffTickets).toHaveBeenLastCalledWith(expect.objectContaining({ owner: "unassigned", status: "OPEN", statusGroup: undefined, itPriority: "HIGH", page: 1 }))); expect(screen.getByRole("link", { name: "Clear filters" })).toHaveAttribute("href", "#/staff/tickets"); rerender(<StaffTicketQueue routeQuery={{}} />); await waitFor(() => expect(fetchStaffTickets).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, search: undefined, status: undefined, itPriority: undefined, owner: undefined, statusGroup: undefined, updatedFrom: undefined, updatedTo: undefined, sortBy: "updatedAt", sortOrder: "desc" })); });
   it("exposes every documented status and sends the selected status filter", async () => {
     render(<StaffTicketQueue />);
     await screen.findByText("TKT-1");
@@ -37,7 +38,7 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
-    expect(screen.getByText("IT Staff access is required to view the Ticket Queue.")).toBeInTheDocument();
+    expect(screen.getByText("Operational access is required to view the Ticket Queue.")).toBeInTheDocument();
 
     // Remove the Requester App instance before testing IT Staff.
     cleanup();
@@ -59,7 +60,7 @@ describe("StaffTicketQueue", () => { beforeEach(() => { vi.clearAllMocks(); wind
     ).toBeInTheDocument();
 
     await waitFor(() =>
-      expect(window.location.hash).toBe("#/staff/tickets"),
+      expect(window.location.hash).toBe("#/staff/dashboard"),
     );
 
     cleanup();
