@@ -12,7 +12,7 @@
 | [#74](https://github.com/KwanchanokThungsuk/toktickit/pull/74) | feature/30-complete-ticket-workflow | Comment and Approved |
 | [#75](https://github.com/KwanchanokThungsuk/toktickit/pull/75) | feature/31-it-staff-requester-dashboards | Comment and Approved |
 | [#76](https://github.com/KwanchanokThungsuk/toktickit/pull/76) | feature/32-lab4-tests-regression | Approved |
-| [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) | feature/33-final-regression-accessibility-release |  |
+| [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77) | feature/33-final-regression-accessibility-release | Comment and Approved |
 
 **feature/27-sprint4-contract-test-plan**
 PR: [#71](https://github.com/KwanchanokThungsuk/toktickit/pull/71)
