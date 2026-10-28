@@ -108,8 +108,19 @@ No blocking issues found. Approved.
 
 **feature/33-final-regression-accessibility-release**
 PR: [#77](https://github.com/KwanchanokThungsuk/toktickit/pull/77)
-- Reviewer: 
-- How I responded: 
+- Reviewer: The final regression and release evidence looks strong overall, but I found two remaining cleanup issues before approval:
+    server/tests/helpers/migration-test-database.ts still hard-codes PostgreSQL executables under /Applications/Postgres.app/.... This causes the migration/seed regression tests to fail on non-macOS environments even though the README only requires PostgreSQL generally. Since this is the final regression/release PR, please make these commands portable/configurable (for example, use psql, createdb, and dropdb from PATH) or document the required environment consistently.
+    docs/lab-04/reviewer.md still lists PR #71 as feature/27-lab3-spec-contract, while the actual branch was feature/27-sprint4-contract-test-plan. The PR #76 detail section is also still blank even though it is marked Approved in the summary. Please clean up the final peer-review evidence so it accurately matches the PR history.
+    The E2E, responsive, accessibility, screenshot, performance, and AI-use evidence otherwise look complete and consistent.
+- How I responded: Thanks for the review. I fixed the remaining cleanup items:
+
+    Replaced the macOS-specific PostgreSQL CLI paths with PATH-resolved psql, createdb, and dropdb.
+    Updated the Lab 3/4 migration regression tests to use the shared portable helper.
+    Corrected the Lab 4 reviewer evidence for PR docs: define Lab 4 engineering contract and test plan #71 and PR test(lab4): complete issue 32 regression coverage #76.
+    Also corrected my partner’s name in the Lab 1, Lab 2, and Lab 3 reviewer headers; those are documentation-only fixes.
+    Relevant migration/seed checks, server build, Prisma validation, and git diff --check all pass.
+
+    Please recheck PR #77.
 
 ## Pull Requests I reviewed for my partner
 **feature/13-specification-docs-lab3**
